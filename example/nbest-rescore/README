@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#	N-best list rescoring example
+#	-----------------------------
+#
+#
+#	Steps:
+#
+#	1. Generate n-bests
+#
+#	2. Extract pure text from n-bests
+#
+#	3. Merge all text files to one file, add unique number at begining of each line so that rnnlm toolkit will know when to reload parameters
+#
+#	4. Optionally rescore nbests with srilm (-debug 2), sentence identifiers have to be removed for this step
+#
+#	5. Rescore with ./rnnlm -....... (if step 4 was done, use -lm-prob <probfile>)
+#
+#	6. Use resulting scores to pick the best hypothesis, generate output
+#
+#	7. Look at mlf.GetTimeBoundaries.rt05.ihmref.sh to see how to get word timing information to mlf file (conversion txt -> mlf is pretty simple)
+#	(this last step is just example script, it won't work for this setup as it needs other files)
+#
+
+
+# make sure ../../rnnlm has been compiled and model ../../model has been built, using the script ../../m
+
+gcc makenbest.c -o makenbest
+gcc gettext.c -o gettext
+gcc getbest.c -o getbest
+
+
+cd lattices
+
+rm nbest/*
+
+./nbest.sh
+
+cd nbest
+
+gzip -d *
+
+ls * > ../../nbestlist
+
+../../makenbest < ../../nbestlist > ../../nbest
+
+cd ../..
+
+./gettext <nbest >nbest.txt
+
+# we are using here some crappy rnn model estimated from just a few words, so dont worry that the rnn scores do not look great
+# to combine with another lm (for example backoff lm) on the word level, specify word probabilities from such model using -lm-prob switch
+../../rnnlm -test nbest.txt -rnnlm ../../model -nbest > model.nbest.txt.output.txt -debug 0
+
+./getbest model.nbest.txt.output.txt nbest > rescored.txt
