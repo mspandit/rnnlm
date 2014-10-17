@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3c
+// Version 0.3d
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -82,6 +82,7 @@ protected:
     int **class_words;
     int *class_cn;
     int *class_max_cn;
+    int old_classes;
     
     struct vocab_word *vocab;
     void sortVocab();
@@ -168,7 +169,7 @@ public:
 	train_cur_pos=0;
 	vocab_max_size=100;
 	vocab_size=0;
-	vocab=(struct vocab_word *)malloc(vocab_max_size * sizeof(struct vocab_word));
+	vocab=(struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
 	
 	layer1_size=30;
 	
@@ -211,6 +212,7 @@ public:
 	rand_seed=1;
 	
 	class_size=100;
+	old_classes=0;
 	
 	one_iter=0;
 	
@@ -218,7 +220,7 @@ public:
 	srand(rand_seed);
 	
 	vocab_hash_size=100000000;
-	vocab_hash=(int *)malloc(sizeof(int)*vocab_hash_size);
+	vocab_hash=(int *)calloc(vocab_hash_size, sizeof(int));
     }
     
     ~CRnnLM()		//destructor, deallocates memory
@@ -259,6 +261,10 @@ public:
 	
 	    free(vocab);
 	    free(vocab_hash);
+
+	    if (bptt_history!=NULL) free(bptt_history);
+	    if (bptt_hidden!=NULL) free(bptt_hidden);
+            if (bptt_syn0!=NULL) free(bptt_syn0);
 	    
 	    //todo: free bptt variables too
 	}
@@ -275,6 +281,7 @@ public:
     void setFileType(int newt) {filetype=newt;}
     
     void setClassSize(int newSize) {class_size=newSize;}
+    void setOldClasses(int newVal) {old_classes=newVal;}
     void setLambda(real newLambda) {lambda=newLambda;}
     void setGradientCutoff(real newGradient) {gradient_cutoff=newGradient;}
     void setDynamic(real newD) {dynamic=newD;}

@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3c
+// Version 0.3d
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -42,6 +42,7 @@ int main(int argc, char **argv)
     int alpha_set=0, train_file_set=0;
     
     int class_size=100;
+    int old_classes=0;
     float lambda=0.75;
     float gradient_cutoff=15;
     float dynamic=0;
@@ -56,7 +57,6 @@ int main(int argc, char **argv)
     int bptt_block=10;
     int gen=0;
     int independent=0;
-    int rnnlm_exist=0;
     int use_lmprob=0;
     int rand_seed=1;
     int nbest=0;
@@ -74,7 +74,7 @@ int main(int argc, char **argv)
     if (argc==1) {
     	//printf("Help\n");
 
-    	printf("Recurrent neural network based language modeling toolkit v 0.3c\n\n");
+    	printf("Recurrent neural network based language modeling toolkit v 0.3d\n\n");
 
     	printf("Options:\n");
 
@@ -86,6 +86,9 @@ int main(int argc, char **argv)
         
         printf("\t-class <int>\n");
         printf("\t\tWill use specified amount of classes to decompose vocabulary; default is 100\n");
+	
+	printf("\t-old-classes\n");
+        printf("\t\tThis will use old algorithm to compute classes, which results in slower models but can be a bit more precise\n");
 
     	printf("\t-rnnlm <file>\n");
         printf("\t\tUse <file> to store rnnlm model\n");
@@ -298,6 +301,16 @@ int main(int argc, char **argv)
 	if (debug_mode>0)
         printf("class size: %d\n", class_size);
     }
+
+
+    //set old class
+    i=argPos((char *)"-old-classes", argc, argv);
+    if (i>0) {
+        old_classes=1;
+
+	if (debug_mode>0)
+        printf("Old algorithm for computing classes will be used\n");
+    }
     
     
     //set lambda
@@ -477,7 +490,7 @@ int main(int argc, char **argv)
 	if (direct<0) direct=0;
 
         if (debug_mode>0)
-        printf("Direct connections: %dM\n", direct/1000000);
+        printf("Direct connections: %dM\n", (int)(direct/1000000));
     }
     
     
@@ -592,9 +605,6 @@ int main(int argc, char **argv)
         printf("rnnlm file: %s\n", rnnlm_file);
 
         f=fopen(rnnlm_file, "rb");
-        if (f!=NULL) {
-            rnnlm_exist=1;
-        }
 
         rnnlm_file_set=1;
     }
@@ -629,6 +639,7 @@ int main(int argc, char **argv)
     	if (one_iter==0) model1.setValidFile(valid_file);
 
 	model1.setClassSize(class_size);
+	model1.setOldClasses(old_classes);
     	model1.setLearningRate(starting_alpha);
     	model1.setGradientCutoff(gradient_cutoff);
     	model1.setRegularization(regularization);

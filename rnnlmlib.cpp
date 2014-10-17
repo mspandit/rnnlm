@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3c
+// Version 0.3d
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -67,6 +67,8 @@ void CRnnLM::readWord(char *word, FILE *fin)
 
     while (!feof(fin)) {
 	ch=fgetc(fin);
+
+	if (ch==13) continue;
 
 	if ((ch==' ') || (ch=='\t') || (ch=='\n')) {
     	    if (a>0) {
@@ -342,17 +344,17 @@ void CRnnLM::initNet()
     layer0_size=vocab_size+layer1_size;
     layer2_size=vocab_size+class_size;
 
-    neu0=(struct neuron *)malloc(layer0_size * sizeof(struct neuron));
-    neu1=(struct neuron *)malloc(layer1_size * sizeof(struct neuron));
-    neuc=(struct neuron *)malloc(layerc_size * sizeof(struct neuron));
-    neu2=(struct neuron *)malloc(layer2_size * sizeof(struct neuron));
+    neu0=(struct neuron *)calloc(layer0_size, sizeof(struct neuron));
+    neu1=(struct neuron *)calloc(layer1_size, sizeof(struct neuron));
+    neuc=(struct neuron *)calloc(layerc_size, sizeof(struct neuron));
+    neu2=(struct neuron *)calloc(layer2_size, sizeof(struct neuron));
 
-    syn0=(struct synapse *)malloc(layer0_size*layer1_size * sizeof(struct synapse));
+    syn0=(struct synapse *)calloc(layer0_size*layer1_size, sizeof(struct synapse));
     if (layerc_size==0)
-	syn1=(struct synapse *)malloc(layer1_size*layer2_size * sizeof(struct synapse));
+	syn1=(struct synapse *)calloc(layer1_size*layer2_size, sizeof(struct synapse));
     else {
-	syn1=(struct synapse *)malloc(layer1_size*layerc_size * sizeof(struct synapse));
-	sync=(struct synapse *)malloc(layerc_size*layer2_size * sizeof(struct synapse));
+	syn1=(struct synapse *)calloc(layer1_size*layerc_size, sizeof(struct synapse));
+	sync=(struct synapse *)calloc(layerc_size*layer2_size, sizeof(struct synapse));
     }
 
     if (syn1==NULL) {
@@ -365,26 +367,26 @@ void CRnnLM::initNet()
 	exit(1);
     }
     
-    syn_d=(direct_t *)malloc((long long)direct_size * (long long)sizeof(direct_t));
+    syn_d=(direct_t *)calloc((long long)direct_size, sizeof(direct_t));
 
     if (syn_d==NULL) {
-	printf("Memory allocation for direct connections failed\n");
+	printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct_size * (long long)sizeof(direct_t));
 	exit(1);
     }
 
-    neu0b=(struct neuron *)malloc(layer0_size * sizeof(struct neuron));
-    neu1b=(struct neuron *)malloc(layer1_size * sizeof(struct neuron));
-    neucb=(struct neuron *)malloc(layerc_size * sizeof(struct neuron));
-    neu1b2=(struct neuron *)malloc(layer1_size * sizeof(struct neuron));
-    neu2b=(struct neuron *)malloc(layer2_size * sizeof(struct neuron));
+    neu0b=(struct neuron *)calloc(layer0_size, sizeof(struct neuron));
+    neu1b=(struct neuron *)calloc(layer1_size, sizeof(struct neuron));
+    neucb=(struct neuron *)calloc(layerc_size, sizeof(struct neuron));
+    neu1b2=(struct neuron *)calloc(layer1_size, sizeof(struct neuron));
+    neu2b=(struct neuron *)calloc(layer2_size, sizeof(struct neuron));
 
-    syn0b=(struct synapse *)malloc(layer0_size*layer1_size * sizeof(struct synapse));
-    //syn1b=(struct synapse *)malloc(layer1_size*layer2_size * sizeof(struct synapse));
+    syn0b=(struct synapse *)calloc(layer0_size*layer1_size, sizeof(struct synapse));
+    //syn1b=(struct synapse *)calloc(layer1_size*layer2_size, sizeof(struct synapse));
     if (layerc_size==0)
-	syn1b=(struct synapse *)malloc(layer1_size*layer2_size * sizeof(struct synapse));
+	syn1b=(struct synapse *)calloc(layer1_size*layer2_size, sizeof(struct synapse));
     else {
-	syn1b=(struct synapse *)malloc(layer1_size*layerc_size * sizeof(struct synapse));
-	syncb=(struct synapse *)malloc(layerc_size*layer2_size * sizeof(struct synapse));
+	syn1b=(struct synapse *)calloc(layer1_size*layerc_size, sizeof(struct synapse));
+	syncb=(struct synapse *)calloc(layerc_size*layer2_size, sizeof(struct synapse));
     }
 
     if (syn1b==NULL) {
@@ -435,16 +437,16 @@ void CRnnLM::initNet()
     for (aa=0; aa<direct_size; aa++) syn_d[aa]=0;
     
     if (bptt>0) {
-	bptt_history=(int *)malloc((bptt+bptt_block+10)*sizeof(int));
+	bptt_history=(int *)calloc((bptt+bptt_block+10), sizeof(int));
 	for (a=0; a<bptt+bptt_block; a++) bptt_history[a]=-1;
 	//
-	bptt_hidden=(neuron *)malloc((bptt+bptt_block+1)*layer1_size*sizeof(neuron));
+	bptt_hidden=(neuron *)calloc((bptt+bptt_block+1)*layer1_size, sizeof(neuron));
 	for (a=0; a<(bptt+bptt_block)*layer1_size; a++) {
 	    bptt_hidden[a].ac=0;
 	    bptt_hidden[a].er=0;
 	}
 	//
-	bptt_syn0=(struct synapse *)malloc(layer0_size*layer1_size * sizeof(struct synapse));
+	bptt_syn0=(struct synapse *)calloc(layer0_size*layer1_size, sizeof(struct synapse));
 	if (bptt_syn0==NULL) {
 	    printf("Memory allocation failed\n");
 	    exit(1);
@@ -453,36 +455,51 @@ void CRnnLM::initNet()
 
     saveWeights();
     
-    //
-    
-    double df;
+    double df, dd;
     int i;
     
     df=0;
+    dd=0;
     a=0;
     b=0;
-    for (i=0; i<vocab_size; i++) b+=vocab[i].cn;
-    for (i=0; i<vocab_size; i++) {
-        df+=vocab[i].cn/(double)b;
-        if (df>1) df=1;
-        if (df>(a+1)/(double)class_size) {
-    	    vocab[i].class_index=a;
-    	    if (a<class_size-1) a++;
-        } else {
-    	    vocab[i].class_index=a;
+
+    if (old_classes) {  	// old classes
+        for (i=0; i<vocab_size; i++) b+=vocab[i].cn;
+        for (i=0; i<vocab_size; i++) {
+            df+=vocab[i].cn/(double)b;
+            if (df>1) df=1;
+            if (df>(a+1)/(double)class_size) {
+    	        vocab[i].class_index=a;
+    	        if (a<class_size-1) a++;
+            } else {
+    	        vocab[i].class_index=a;
+            }
         }
+    } else {			// new classes
+        for (i=0; i<vocab_size; i++) b+=vocab[i].cn;
+        for (i=0; i<vocab_size; i++) dd+=sqrt(vocab[i].cn/(double)b);
+        for (i=0; i<vocab_size; i++) {
+	    df+=sqrt(vocab[i].cn/(double)b)/dd;
+            if (df>1) df=1;
+            if (df>(a+1)/(double)class_size) {
+    	        vocab[i].class_index=a;
+    	        if (a<class_size-1) a++;
+            } else {
+    	        vocab[i].class_index=a;
+            }
+	}
     }
     
     //allocate auxiliary class variables (for faster search when normalizing probability at output layer)
     
-    class_words=(int **)malloc(class_size*sizeof(int *));
-    class_cn=(int *)malloc(class_size*sizeof(int));
-    class_max_cn=(int *)malloc(class_size*sizeof(int));
+    class_words=(int **)calloc(class_size, sizeof(int *));
+    class_cn=(int *)calloc(class_size, sizeof(int));
+    class_max_cn=(int *)calloc(class_size, sizeof(int));
     
     for (i=0; i<class_size; i++) {
 	class_cn[i]=0;
 	class_max_cn[i]=10;
-	class_words[i]=(int *)malloc(class_max_cn[i]*sizeof(int));
+	class_words[i]=(int *)calloc(class_max_cn[i], sizeof(int));
     }
     
     for (i=0; i<vocab_size; i++) {
@@ -502,7 +519,6 @@ void CRnnLM::saveNet()       //will save the whole network structure
     int a, b;
     char str[1000];
     float fl;
-    signed short int si;
     
     sprintf(str, "%s.temp", rnnlm_file);
 
@@ -530,7 +546,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
     fprintf(fo, "compression layer size: %d\n", layerc_size);
     fprintf(fo, "output layer size: %d\n", layer2_size);
 
-    fprintf(fo, "direct connections: %ld\n", direct_size);
+    fprintf(fo, "direct connections: %lld\n", direct_size);
     fprintf(fo, "direct order: %d\n", direct_order);
     
     fprintf(fo, "bptt: %d\n", bptt);
@@ -672,11 +688,9 @@ void CRnnLM::restoreNet()    //will read whole network structure
 {
     FILE *fi;
     int a, b, ver;
-    int ch;
-    real f;
     float fl;
     char str[MAX_STRING];
-    signed short int si;
+    double d;
 
     fi=fopen(rnnlm_file, "rb");
     if (fi==NULL) {
@@ -735,7 +749,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
     //
     if (ver>5) {
 	goToDelimiter(':', fi);
-	fscanf(fi, "%ld", &direct_size);
+	fscanf(fi, "%lld", &direct_size);
     }
     //
     if (ver>6) {
@@ -758,18 +772,14 @@ void CRnnLM::restoreNet()    //will read whole network structure
     fscanf(fi, "%d", &class_size);
     //
     goToDelimiter(':', fi);
-    if (sizeof(real)>4)
-	fscanf(fi, "%lf", &starting_alpha);
-    else
-	fscanf(fi, "%f", &starting_alpha);
+    fscanf(fi, "%lf", &d);
+    starting_alpha=d;
     //
     goToDelimiter(':', fi);
     if (alpha_set==0) {
-	if (sizeof(real)>4)
-	    fscanf(fi, "%lf", &alpha);
-	else
-	    fscanf(fi, "%f", &alpha);
-    } else fscanf(fi, "%f", &fl);
+	fscanf(fi, "%lf", &d);
+	alpha=d;
+    } else fscanf(fi, "%lf", &d);
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &alpha_divide);
@@ -779,15 +789,18 @@ void CRnnLM::restoreNet()    //will read whole network structure
     //read normal vocabulary
     if (vocab_max_size<vocab_size) {
 	if (vocab!=NULL) free(vocab);
-        vocab_max_size=vocab_size+100;
-        vocab=(struct vocab_word *)malloc(vocab_max_size * sizeof(struct vocab_word));    //initialize memory for vocabulary
+        vocab_max_size=vocab_size+1000;
+        vocab=(struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));    //initialize memory for vocabulary
     }
     //
     goToDelimiter(':', fi);
-    for (a=0; a<vocab_size; a++) fscanf(fi, "%d%d%s%d", &b, &vocab[a].cn, vocab[a].word, &vocab[a].class_index);
-    
-    
-    
+    for (a=0; a<vocab_size; a++) {
+	//fscanf(fi, "%d%d%s%d", &b, &vocab[a].cn, vocab[a].word, &vocab[a].class_index);
+	fscanf(fi, "%d%d", &b, &vocab[a].cn);
+	readWord(vocab[a].word, fi);
+	fscanf(fi, "%d", &vocab[a].class_index);
+	//printf("%d  %d  %s  %d\n", b, vocab[a].cn, vocab[a].word, vocab[a].class_index);
+    }
     //
     if (neu0==NULL) initNet();		//memory allocation here
     //
@@ -795,13 +808,13 @@ void CRnnLM::restoreNet()    //will read whole network structure
     
     if (filetype==TEXT) {
 	goToDelimiter(':', fi);
-	if (sizeof(real)>4)
-	    for (a=0; a<layer1_size; a++) fscanf(fi, "%lf", &neu1[a].ac);
-	else
-	    for (a=0; a<layer1_size; a++) fscanf(fi, "%f", &neu1[a].ac);
+	for (a=0; a<layer1_size; a++) {
+	    fscanf(fi, "%lf", &d);
+	    neu1[a].ac=d;
+	}
     }
     if (filetype==BINARY) {
-	ch=fgetc(fi);
+	fgetc(fi);
 	for (a=0; a<layer1_size; a++) {
 	    fread(&fl, 4, 1, fi);
 	    neu1[a].ac=fl;
@@ -811,10 +824,10 @@ void CRnnLM::restoreNet()    //will read whole network structure
     if (filetype==TEXT) {
 	goToDelimiter(':', fi);
 	for (b=0; b<layer1_size; b++) {
-	    if (sizeof(real)>4)
-    		for (a=0; a<layer0_size; a++) fscanf(fi, "%lf", &syn0[a+b*layer0_size].weight);
-    	    else
-    		for (a=0; a<layer0_size; a++) fscanf(fi, "%f", &syn0[a+b*layer0_size].weight);
+    	    for (a=0; a<layer0_size; a++) {
+		fscanf(fi, "%lf", &d);
+		syn0[a+b*layer0_size].weight=d;
+	    }
 	}
     }
     if (filetype==BINARY) {
@@ -830,28 +843,28 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	goToDelimiter(':', fi);
 	if (layerc_size==0) {	//no compress layer
 	    for (b=0; b<layer2_size; b++) {
-		if (sizeof(real)>4)
-    		    for (a=0; a<layer1_size; a++) fscanf(fi, "%lf", &syn1[a+b*layer1_size].weight);
-    		else
-    		    for (a=0; a<layer1_size; a++) fscanf(fi, "%f", &syn1[a+b*layer1_size].weight);
+    		for (a=0; a<layer1_size; a++) {
+		    fscanf(fi, "%lf", &d);
+		    syn1[a+b*layer1_size].weight=d;
+		}
     	    }
 	}
 	else
 	{				//with compress layer
 	    for (b=0; b<layerc_size; b++) {
-		if (sizeof(real)>4)
-    		    for (a=0; a<layer1_size; a++) fscanf(fi, "%lf", &syn1[a+b*layer1_size].weight);
-    		else
-    		    for (a=0; a<layer1_size; a++) fscanf(fi, "%f", &syn1[a+b*layer1_size].weight);
+    		for (a=0; a<layer1_size; a++) {
+		    fscanf(fi, "%lf", &d);
+		    syn1[a+b*layer1_size].weight=d;
+		}
     	    }
     	
     	    goToDelimiter(':', fi);
     	
     	    for (b=0; b<layer2_size; b++) {
-		if (sizeof(real)>4)
-    		    for (a=0; a<layerc_size; a++) fscanf(fi, "%lf", &sync[a+b*layerc_size].weight);
-    		else
-    		    for (a=0; a<layerc_size; a++) fscanf(fi, "%f", &sync[a+b*layerc_size].weight);
+    		for (a=0; a<layerc_size; a++) {
+		    fscanf(fi, "%lf", &d);
+		    sync[a+b*layerc_size].weight=d;
+		}
     	    }
 	}
     }
@@ -885,10 +898,10 @@ void CRnnLM::restoreNet()    //will read whole network structure
     if (filetype==TEXT) {
 	goToDelimiter(':', fi);		//direct conenctions
 	long long aa;
-	if (sizeof(direct_t)>4)
-    	    for (aa=0; aa<direct_size; aa++) fscanf(fi, "%lf", &syn_d[aa]);
-	else
-    	    for (aa=0; aa<direct_size; aa++) fscanf(fi, "%f", &syn_d[aa]);
+    	for (aa=0; aa<direct_size; aa++) {
+	    fscanf(fi, "%lf", &d);
+	    syn_d[aa]=d;
+	}
     }
     //
     if (filetype==BINARY) {
@@ -1077,7 +1090,6 @@ void CRnnLM::computeNet(int last_word, int word)
     int a, b, c;
     real val;
     double sum;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
-    real val1, val2, val3, val4;
     
     if (last_word!=-1) neu0[last_word].ac=1;
 
@@ -1124,21 +1136,24 @@ void CRnnLM::computeNet(int last_word, int word)
 
     //apply direct connections to classes
     if (direct_size>0) {
-	unsigned long long hash[MAX_NGRAM_ORDER];
+	unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to syn_d that contains hash parameters
 	
 	for (a=0; a<direct_order; a++) hash[a]=0;
 	
 	for (a=0; a<direct_order; a++) {
 	    b=0;
-	    if (a>0) if (history[a-1]==-1) break;
+	    if (a>0) if (history[a-1]==-1) break;	//if OOV was in history, do not use this N-gram feature and higher orders
 	    hash[a]=PRIMES[0]*PRIMES[1];
 	    	    
-	    for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-	    hash[a]=hash[a]%(direct_size/2);
+	    for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);	//update hash value based on words from the history
+	    hash[a]=hash[a]%(direct_size/2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
 	}
 	
 	for (a=vocab_size; a<layer2_size; a++) {
-	    for (b=0; b<direct_order; b++) if (hash[b]) neu2[a].ac+=syn_d[hash[b]++]; else break;
+	    for (b=0; b<direct_order; b++) if (hash[b]) {
+		neu2[a].ac+=syn_d[hash[b]];		//apply current parameter and move to the next one
+		hash[b]++;
+	    } else break;
 	}
     }
 
@@ -1213,8 +1228,7 @@ void CRnnLM::computeNet(int last_word, int word)
 void CRnnLM::learnNet(int last_word, int word)
 {
     int a, b, c, t, step;
-    real val1, val2, val3, val4, beta2;
-    real beta3;
+    real beta2, beta3;
 
     beta2=beta*alpha;
     beta3=beta2*1;	//beta3 can be possibly larger than beta2, as that is useful on small datasets (if the final model is to be interpolated wich backoff model) - todo in the future
@@ -1281,7 +1295,10 @@ void CRnnLM::learnNet(int last_word, int word)
 	}
 	
 	for (a=vocab_size; a<layer2_size; a++) {
-	    for (b=0; b<direct_order; b++) if (hash[b]) syn_d[hash[b]]+=alpha*neu2[a].er - syn_d[hash[b]++]*beta3; else break;
+	    for (b=0; b<direct_order; b++) if (hash[b]) {
+		syn_d[hash[b]]+=alpha*neu2[a].er - syn_d[hash[b]]*beta3;
+		hash[b]++;
+	    } else break;
 	}
     }
     //
@@ -1460,10 +1477,12 @@ void CRnnLM::copyHiddenLayerToInput()
 
 void CRnnLM::trainNet()
 {
-    int a, b, i, word, last_word, wordcn;
-    char str[MAX_STRING];
-    FILE *fi, *fo, *flog;
+    int a, b, word, last_word, wordcn;
+    char log_name[200];
+    FILE *fi, *flog;
     clock_t start, now;
+
+    sprintf(log_name, "%s.output.txt", rnnlm_file);
 
     printf("Starting training using file %s\n", train_file);
     starting_alpha=alpha;
@@ -1572,8 +1591,16 @@ void CRnnLM::trainNet()
         netFlush();
 
         fi=fopen(valid_file, "rb");
-        sprintf(str, "%s.output.txt", rnnlm_file);
-        flog=fopen(str, "ab");
+	if (fi==NULL) {
+	    printf("Valid file not found\n");
+	    exit(1);
+	}
+        
+        flog=fopen(log_name, "ab");
+	if (flog==NULL) {
+	    printf("Cannot open log file\n");
+	    exit(1);
+	}
         
         //fprintf(flog, "Index   P(NET)          Word\n");
         //fprintf(flog, "----------------------------------\n");
@@ -1645,11 +1672,10 @@ void CRnnLM::trainNet()
 
 void CRnnLM::testNet()
 {
-    int a, b, i, word, last_word, wordcn;
-    FILE *fi, *flog, *lmprob;
-    char str[MAX_STRING];
-    real prob_other, log_other, log_combine, f;
-    int overwrite;
+    int a, b, word, last_word, wordcn;
+    FILE *fi, *flog, *lmprob=NULL;
+    real prob_other, log_other, log_combine;
+    double d;
     
     restoreNet();
     
@@ -1694,11 +1720,9 @@ void CRnnLM::testNet()
         if (feof(fi)) break;		//end of file: report LOGP, PPL
         
         if (use_lmprob) {
-    	    if (sizeof(real)>4)
-        	fscanf(lmprob, "%lf", &prob_other);
-    	    else
-    		fscanf(lmprob, "%f", &prob_other);
-    		
+            fscanf(lmprob, "%lf", &d);
+    	    prob_other=d;
+
             goToDelimiter('\n', lmprob);
         }
 
@@ -1775,11 +1799,9 @@ void CRnnLM::testNet()
 void CRnnLM::testNbest()
 {
     int a, word, last_word, wordcn;
-    FILE *fi, *flog, *lmprob;
-    char str[MAX_STRING];
+    FILE *fi, *flog, *lmprob=NULL;
     float prob_other; //has to be float so that %f works in fscanf
     real log_other, log_combine, senp;
-    int overwrite;
     //int nbest=-1;
     int nbest_cn=0;
     char ut1[MAX_STRING], ut2[MAX_STRING];
@@ -1914,11 +1936,12 @@ void CRnnLM::testNbest()
 
 void CRnnLM::testGen()
 {
-    int i, word, cla, last_word, wordcn, c, a, b;
+    int i, word, cla, last_word, wordcn, c, b, a=0;
     real f, g, sum, val;
     
     restoreNet();
     
+    word=0;
     last_word=0;					//last word = end of sentence
     wordcn=0;
     copyHiddenLayerToInput();
