@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.1h
+// Version 0.2b
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -55,11 +55,16 @@ protected:
     real starting_alpha;
     int alpha_divide;
     double logp, llogp;
+    float min_improvement;
     int iter;
     int vocab_max_size;
     int vocab_size;
     int train_words;
+    int train_cur_pos;
     int counter;
+    
+    int one_iter;
+    int anti_k;
     
     real beta;
     
@@ -77,9 +82,12 @@ protected:
     int layer1_size;
     int layer2_size;
     
+    int direct_size;
+    
     int bptt;
+    int bptt_block;
     int *bptt_history;
-    real *bptt_hidden;
+    neuron *bptt_hidden;
     struct synapse *bptt_syn0;
     
     int gen;
@@ -90,22 +98,30 @@ protected:
 
     struct synapse *syn0;		//weights between input and hidden layer
     struct synapse *syn1;		//weights between hidden and output layer
+    struct synapse *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
+    struct synapse *syn_dc;		//direct parameters between input and class layer
     
     //backup used in training:
     struct neuron *neu0b;
     struct neuron *neu1b;
-    struct neuron *neu1b2;
     struct neuron *neu2b;
 
     struct synapse *syn0b;
     struct synapse *syn1b;
+    struct synapse *syn_db;
+    struct synapse *syn_dcb;
     
+    //backup used in n-bset rescoring:
+    struct neuron *neu1b2;
     
     
 public:
+
+    int alpha_set, train_file_set;
+
     CRnnLM()		//constructor initializes variables
     {
-	version=3;
+	version=6;
 	
 	use_lmprob=0;
 	lambda=0.75;
@@ -116,22 +132,31 @@ public:
 	test_file[0]=0;
 	rnnlm_file[0]=0;
 	
+	alpha_set=0;
+	train_file_set=0;
+	
 	alpha=0.1;
-	beta=0.000001;
+	beta=0.0000001;
 	//beta=0.00000;
 	alpha_divide=0;
-	logp=-100000000;
+	logp=0;
 	llogp=-100000000;
 	iter=0;
 	
+	min_improvement=1.003;
+	
 	train_words=0;
+	train_cur_pos=0;
 	vocab_max_size=100;
 	vocab_size=0;
 	vocab=(struct vocab_word *)malloc(vocab_max_size * sizeof(struct vocab_word));
 	
 	layer1_size=30;
 	
+	direct_size=0;
+	
 	bptt=0;
+	bptt_block=10;
 	bptt_history=NULL;
 	bptt_hidden=NULL;
 	bptt_syn0=NULL;
@@ -144,11 +169,14 @@ public:
 	
 	syn0=NULL;
 	syn1=NULL;
+	syn_d=NULL;
+	syn_dc=NULL;
 	//backup
 	neu0b=NULL;
 	neu1b=NULL;
-	neu1b2=NULL;
 	neu2b=NULL;
+	
+	neu1b2=NULL;
 	
 	syn0b=NULL;
 	syn1b=NULL;
@@ -157,6 +185,8 @@ public:
 	rand_seed=1;
 	
 	class_size=100;
+	
+	one_iter=0;
 	
 	debug_mode=1;
 	srand(rand_seed);
@@ -169,14 +199,6 @@ public:
     {
 	int i;
 	
-	for (i=0; i<class_size; i++) free(class_words[i]);
-	free(class_max_cn);
-	free(class_cn);
-	free(class_words);
-	
-	free(vocab);
-	free(vocab_hash);
-	
 	if (neu0!=NULL) {
 	    free(neu0);
 	    free(neu1);
@@ -184,14 +206,34 @@ public:
 	    
 	    free(syn0);
 	    free(syn1);
+	    
+	    if (syn_d!=NULL) free(syn_d);
+	    if (syn_d!=NULL) free(syn_dc);
+		
+	    if (syn_d!=NULL) free(syn_db);
+	    if (syn_d!=NULL) free(syn_dcb);
+
 	    //
 	    free(neu0b);
 	    free(neu1b);
-	    free(neu1b2);
 	    free(neu2b);
+	    
+	    free(neu1b2);
 	    
 	    free(syn0b);
 	    free(syn1b);
+	    //
+	    
+	    
+	    for (i=0; i<class_size; i++) free(class_words[i]);
+	    free(class_max_cn);
+	    free(class_cn);
+	    free(class_words);
+	
+	    free(vocab);
+	    free(vocab_hash);
+	    
+	    //todo: free bptt variables too
 	}
     }
     
@@ -209,10 +251,16 @@ public:
     void setGen(real newGen) {gen=newGen;}
     
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
+    void setRegularization(real newBeta) {beta=newBeta;}
+    void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
     void setHiddenLayerSize(int newsize) {layer1_size=newsize;}
+    void setDirectSize(int newsize) {direct_size=newsize;}
     void setBPTT(int newval) {bptt=newval;}
+    void setBPTTBlock(int newval) {bptt_block=newval;}
     void setRandSeed(int newSeed) {rand_seed=newSeed; srand(rand_seed);}
     void setDebugMode(int newDebug) {debug_mode=newDebug;}
+    void setAntiKasparek(int newAnti) {anti_k=newAnti;}
+    void setOneIter(int newOneIter) {one_iter=newOneIter;}
     
     int getWordHash(char *word);
     void readWord(char *word, FILE *fin);
@@ -223,6 +271,8 @@ public:
     
     void saveWeights();			//saves current weights and unit activations
     void restoreWeights();		//restores current weights and unit activations from backup copy
+    //void saveWeights2();		//allows 2. copy to be stored, useful for dynamic rescoring of nbest lists
+    //void restoreWeights2();		
     void saveContext();
     void restoreContext();
     void saveContext2();

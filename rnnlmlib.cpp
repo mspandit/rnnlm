@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.1h
+// Version 0.2b
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -23,6 +23,13 @@ static union{
 #define EXP_C 60801
 #define FAST_EXP(y) (d2i.n.i = EXP_A*(y)+(1072693248-EXP_C),d2i.d)
 
+///// include blas
+#ifdef USE_BLAS
+extern "C" {
+#include <cblas.h>
+}
+#endif
+//
 
 
 real CRnnLM::random(real min, real max)
@@ -55,13 +62,13 @@ void CRnnLM::setRnnLMFile(char *str)
 
 void CRnnLM::readWord(char *word, FILE *fin)
 {
-	int a=0, ch;
+    int a=0, ch;
 
-	while (!feof(fin)) {
-		ch=fgetc(fin);
+    while (!feof(fin)) {
+	ch=fgetc(fin);
 
-		if ((ch==' ') || (ch=='\t') || (ch=='\n')) {
-            if (a>0) {
+	if ((ch==' ') || (ch=='\t') || (ch=='\n')) {
+    	    if (a>0) {
                 if (ch=='\n') ungetc(ch, fin);
                 break;
             }
@@ -80,8 +87,8 @@ void CRnnLM::readWord(char *word, FILE *fin)
             //printf("Too long word found!\n");   //truncate too long words
             a--;
         }
-	}
-	word[a]=0;
+    }
+    word[a]=0;
 }
 
 int CRnnLM::getWordHash(char *word)
@@ -233,6 +240,14 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
     for (b=0; b<layer2_size; b++) for (a=0; a<layer1_size; a++) {
         syn1b[a+b*layer1_size].weight=syn1[a+b*layer1_size].weight;
     }
+    
+    for (b=0; b<direct_size; b++) for (a=0; a<direct_size; a++) {
+        syn_db[a+b*direct_size].weight=syn_d[a+b*direct_size].weight;
+    }
+    
+    for (b=0; b<class_size; b++) for (a=0; a<vocab_size; a++) {
+        syn_dcb[a+b*vocab_size].weight=syn_dc[a+b*vocab_size].weight;
+    }
 }
 
 void CRnnLM::restoreWeights()      //restores current weights and unit activations from backup copy
@@ -260,6 +275,14 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
     
     for (b=0; b<layer2_size; b++) for (a=0; a<layer1_size; a++) {
         syn1[a+b*layer1_size].weight=syn1b[a+b*layer1_size].weight;
+    }
+    
+    for (b=0; b<direct_size; b++) for (a=0; a<direct_size; a++) {
+        syn_d[a+b*direct_size].weight=syn_db[a+b*direct_size].weight;
+    }
+    
+    for (b=0; b<class_size; b++) for (a=0; a<vocab_size; a++) {
+        syn_dc[a+b*vocab_size].weight=syn_dcb[a+b*vocab_size].weight;
     }
 }
 
@@ -304,6 +327,9 @@ void CRnnLM::initNet()
 
     syn0=(struct synapse *)malloc(layer0_size*layer1_size * sizeof(struct synapse));
     syn1=(struct synapse *)malloc(layer1_size*layer2_size * sizeof(struct synapse));
+    
+    syn_d=(struct synapse *)malloc(direct_size * direct_size * sizeof(struct synapse));
+    syn_dc=(struct synapse *)malloc(class_size * vocab_size * sizeof(struct synapse));
 
     neu0b=(struct neuron *)malloc(layer0_size * sizeof(struct neuron));
     neu1b=(struct neuron *)malloc(layer1_size * sizeof(struct neuron));
@@ -312,6 +338,9 @@ void CRnnLM::initNet()
 
     syn0b=(struct synapse *)malloc(layer0_size*layer1_size * sizeof(struct synapse));
     syn1b=(struct synapse *)malloc(layer1_size*layer2_size * sizeof(struct synapse));
+    
+    syn_db=(struct synapse *)malloc(direct_size * direct_size * sizeof(struct synapse));
+    syn_dcb=(struct synapse *)malloc(class_size * vocab_size * sizeof(struct synapse));
 
     for (a=0; a<layer0_size; a++) {
         neu0[a].ac=0;
@@ -336,14 +365,29 @@ void CRnnLM::initNet()
         syn1[a+b*layer1_size].weight=random(-0.1, 0.1)+random(-0.1, 0.1)+random(-0.1, 0.1);
     }
     
+    for (b=0; b<direct_size; b++) for (a=0; a<direct_size; a++) {
+        syn_d[a+b*direct_size].weight=0;
+    }
+    
+    for (b=0; b<class_size; b++) for (a=0; a<vocab_size; a++) {
+        syn_dc[a+b*vocab_size].weight=0;
+    }
+    
     if (bptt>0) {
-	bptt_history=(int *)malloc((bptt+10)*sizeof(int));
-	for (a=0; a<bptt; a++) bptt_history[a]=-1;
+	bptt_history=(int *)malloc((bptt+bptt_block+10)*sizeof(int));
+	for (a=0; a<bptt+bptt_block; a++) bptt_history[a]=-1;
 	//
-	bptt_hidden=(real *)malloc((bptt+1)*layer1_size*sizeof(real));
-	for (a=0; a<bptt*layer1_size; a++) bptt_hidden[a]=0;
+	bptt_hidden=(neuron *)malloc((bptt+bptt_block+1)*layer1_size*sizeof(neuron));
+	for (a=0; a<(bptt+bptt_block)*layer1_size; a++) {
+	    bptt_hidden[a].ac=0;
+	    bptt_hidden[a].er=0;
+	}
 	//
 	bptt_syn0=(struct synapse *)malloc(layer0_size*layer1_size * sizeof(struct synapse));
+	if (bptt_syn0==NULL) {
+	    printf("Memory allocation failed\n");
+	    exit(1);
+	}
     }
 
     saveWeights();
@@ -393,11 +437,13 @@ void CRnnLM::initNet()
 
 void CRnnLM::saveNet()       //will save the whole network structure                                                        
 {
-    //TODO: save to 2 files, in case of break during saving
     FILE *fo;
     int a, b;
+    char str[1000];
+    
+    sprintf(str, "%s.temp", rnnlm_file);
 
-    fo=fopen(rnnlm_file, "wb");
+    fo=fopen(str, "wb");
     if (fo==NULL) {
         printf("Cannot create file %s\n", rnnlm_file);
         exit(1);
@@ -410,13 +456,18 @@ void CRnnLM::saveNet()       //will save the whole network structure
     fprintf(fo, "last probability of validation data: %f\n", llogp);
     fprintf(fo, "number of finished iterations: %d\n", iter);
 
-    //fprintf(fo, "current position in training data: %d\n", cur_pos);  //**** TODO
-    //fprintf(fo, "save after processing # words: %d\n", save_after);  //**** TODO
+    fprintf(fo, "current position in training data: %d\n", train_cur_pos);
+    fprintf(fo, "current probability of training data: %f\n", logp);
+    fprintf(fo, "save after processing # words: %d\n", anti_k);
+    fprintf(fo, "# of training words: %d\n", train_words);
 
     fprintf(fo, "input layer size: %d\n", layer0_size);
     fprintf(fo, "hidden layer size: %d\n", layer1_size);
     fprintf(fo, "output layer size: %d\n", layer2_size);
+    fprintf(fo, "direct connections: %d\n", direct_size);
+    
     fprintf(fo, "bptt: %d\n", bptt);
+    fprintf(fo, "bptt block: %d\n", bptt_block);
     
     fprintf(fo, "vocabulary size: %d\n", vocab_size);
     fprintf(fo, "class size: %d\n", class_size);
@@ -446,7 +497,23 @@ void CRnnLM::saveNet()       //will save the whole network structure
         }
     }
     
+    fprintf(fo, "\nDirect connections:\n");
+    for (b=0; b<direct_size; b++) {
+        for (a=0; a<direct_size; a++) {
+            fprintf(fo, "%f\n", syn_d[a+b*direct_size].weight);
+        }
+    }
+    
+    if (direct_size>0)
+    for (b=0; b<class_size; b++) {
+        for (a=0; a<vocab_size; a++) {
+            fprintf(fo, "%f\n", syn_dc[a+b*vocab_size].weight);
+        }
+    }
+    
     fclose(fo);
+    
+    rename(str, rnnlm_file);
 }
 
 void CRnnLM::goToDelimiter(int delim, FILE *fi)
@@ -468,6 +535,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
     int a, b, ver;
     int ch;
     real f;
+    float fl;
     char str[MAX_STRING];
 
     fi=fopen(rnnlm_file, "rb");
@@ -478,25 +546,37 @@ void CRnnLM::restoreNet()    //will read whole network structure
 
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &ver);
+    if ((ver==4) && (version==5)) /* we will solve this later.. */ ; else
     if (ver!=version) {
         printf("Unknown version of file %s\n", rnnlm_file);
         exit(1);
     }
     //
     goToDelimiter(':', fi);
-    fscanf(fi, "%s", train_file);
+    if (train_file_set==0) {
+	fscanf(fi, "%s", train_file);
+    } else fscanf(fi, "%s", str);
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%s", valid_file);
     //
     goToDelimiter(':', fi);
-    if (sizeof(real)>4)
-	fscanf(fi, "%lf", &llogp);
-    else
-	fscanf(fi, "%f", &llogp);
+    fscanf(fi, "%lf", &llogp);
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &iter);
+    //
+    goToDelimiter(':', fi);
+    fscanf(fi, "%d", &train_cur_pos);
+    //
+    goToDelimiter(':', fi);
+    fscanf(fi, "%lf", &logp);
+    //
+    goToDelimiter(':', fi);
+    fscanf(fi, "%d", &anti_k);
+    //
+    goToDelimiter(':', fi);
+    fscanf(fi, "%d", &train_words);
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &layer0_size);
@@ -507,8 +587,18 @@ void CRnnLM::restoreNet()    //will read whole network structure
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &layer2_size);
     //
+    if (ver>5) {
+	goToDelimiter(':', fi);
+	fscanf(fi, "%d", &direct_size);
+    }
+    //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &bptt);
+    //
+    if (ver>4) {
+	goToDelimiter(':', fi);
+	fscanf(fi, "%d", &bptt_block);
+    } else bptt_block=10;
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &vocab_size);
@@ -523,10 +613,12 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	fscanf(fi, "%f", &starting_alpha);
     //
     goToDelimiter(':', fi);
-    if (sizeof(real)>4)
-	fscanf(fi, "%lf", &alpha);
-    else
-	fscanf(fi, "%f", &alpha);
+    if (alpha_set==0) {
+	if (sizeof(real)>4)
+	    fscanf(fi, "%lf", &alpha);
+	else
+	    fscanf(fi, "%f", &alpha);
+    } else fscanf(fi, "%f", &fl);
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &alpha_divide);
@@ -544,9 +636,13 @@ void CRnnLM::restoreNet()    //will read whole network structure
     for (a=0; a<vocab_size; a++) fscanf(fi, "%d%d%s%d", &b, &vocab[a].cn, vocab[a].word, &vocab[a].class_index);
     
     
+    
     //
     if (neu0==NULL) initNet();		//memory allocation here
     //
+    
+    
+    
     goToDelimiter(':', fi);
     if (sizeof(real)>4)
 	for (a=0; a<layer1_size; a++) fscanf(fi, "%lf", &neu1[a].ac);
@@ -569,6 +665,26 @@ void CRnnLM::restoreNet()    //will read whole network structure
     	    for (a=0; a<layer1_size; a++) fscanf(fi, "%f", &syn1[a+b*layer1_size].weight);
     }
     //
+    
+    if (ver>5) {
+	goToDelimiter(':', fi);
+	for (b=0; b<direct_size; b++) {
+	    if (sizeof(real)>4)
+    		for (a=0; a<direct_size; a++) fscanf(fi, "%lf", &syn_d[a+b*direct_size].weight);
+    	    else
+    		for (a=0; a<direct_size; a++) fscanf(fi, "%f", &syn_d[a+b*direct_size].weight);
+	}
+	
+	if (direct_size>0)
+	for (b=0; b<class_size; b++) {
+	    if (sizeof(real)>4)
+    		for (a=0; a<vocab_size; a++) fscanf(fi, "%lf", &syn_dc[a+b*vocab_size].weight);
+    	    else
+    		for (a=0; a<vocab_size; a++) fscanf(fi, "%f", &syn_dc[a+b*vocab_size].weight);
+	}
+    }
+    
+    saveWeights();
 
     fclose(fi);
 }
@@ -602,67 +718,83 @@ void CRnnLM::matrixXvector(struct neuron *dest, struct neuron *srcvec, struct sy
 {
     int a, b;
     real val1, val2, val3, val4;
-    
-    //this is normal implementation:
-    /*
+    real val5, val6, val7, val8;
+
     if (type==0) {		//ac mod
-	for (b=from; b<to; b++) {
-	    for (a=from2; a<to2; a++) {
-    		dest[b].ac += srcvec[a].ac * srcmatrix[a+b*matrix_width].weight;
-    	    }
-	}
-    else {		//er mod
-    if (type==1) {
-	for (a=from2; a<to2; a++) {
-	    for (b=from; b<to; b++) {
-    		dest[a].er += srcvec[b].er * srcmatrix[a+b*matrix_width].weight;
-    	    }
-    	}
-    }*/
-    
-    if (type==0) {		//ac mod
-	for (b=0; b<(to-from)/4; b++) {
+	for (b=0; b<(to-from)/8; b++) {
 	    val1=0;
 	    val2=0;
 	    val3=0;
 	    val4=0;
+	    
+	    val5=0;
+	    val6=0;
+	    val7=0;
+	    val8=0;
+	    
 	    for (a=from2; a<to2; a++) {
-    		val1 += srcvec[a].ac * srcmatrix[a+(b*4+from+0)*matrix_width].weight;
-    		val2 += srcvec[a].ac * srcmatrix[a+(b*4+from+1)*matrix_width].weight;
-    		val3 += srcvec[a].ac * srcmatrix[a+(b*4+from+2)*matrix_width].weight;
-    		val4 += srcvec[a].ac * srcmatrix[a+(b*4+from+3)*matrix_width].weight;
+    		val1 += srcvec[a].ac * srcmatrix[a+(b*8+from+0)*matrix_width].weight;
+    		val2 += srcvec[a].ac * srcmatrix[a+(b*8+from+1)*matrix_width].weight;
+    		val3 += srcvec[a].ac * srcmatrix[a+(b*8+from+2)*matrix_width].weight;
+    		val4 += srcvec[a].ac * srcmatrix[a+(b*8+from+3)*matrix_width].weight;
+    		
+    		val5 += srcvec[a].ac * srcmatrix[a+(b*8+from+4)*matrix_width].weight;
+    		val6 += srcvec[a].ac * srcmatrix[a+(b*8+from+5)*matrix_width].weight;
+    		val7 += srcvec[a].ac * srcmatrix[a+(b*8+from+6)*matrix_width].weight;
+    		val8 += srcvec[a].ac * srcmatrix[a+(b*8+from+7)*matrix_width].weight;
     	    }
-    	    dest[b*4+from+0].ac += val1;
-    	    dest[b*4+from+1].ac += val2;
-    	    dest[b*4+from+2].ac += val3;
-    	    dest[b*4+from+3].ac += val4;
+    	    dest[b*8+from+0].ac += val1;
+    	    dest[b*8+from+1].ac += val2;
+    	    dest[b*8+from+2].ac += val3;
+    	    dest[b*8+from+3].ac += val4;
+    	    
+    	    dest[b*8+from+4].ac += val5;
+    	    dest[b*8+from+5].ac += val6;
+    	    dest[b*8+from+6].ac += val7;
+    	    dest[b*8+from+7].ac += val8;
 	}
     
-	for (b=b*4; b<to-from; b++) {
+	for (b=b*8; b<to-from; b++) {
 	    for (a=from2; a<to2; a++) {
     		dest[b+from].ac += srcvec[a].ac * srcmatrix[a+(b+from)*matrix_width].weight;
     	    }
     	}
     }
     else {		//er mod
-    	for (a=0; a<(to2-from2)/4; a++) {
+    	for (a=0; a<(to2-from2)/8; a++) {
 	    val1=0;
 	    val2=0;
 	    val3=0;
 	    val4=0;
+	    
+	    val5=0;
+	    val6=0;
+	    val7=0;
+	    val8=0;
+	    
 	    for (b=from; b<to; b++) {
-    	        val1 += srcvec[b].er * srcmatrix[a*4+from2+0+b*matrix_width].weight;
-    	        val2 += srcvec[b].er * srcmatrix[a*4+from2+1+b*matrix_width].weight;
-    	        val3 += srcvec[b].er * srcmatrix[a*4+from2+2+b*matrix_width].weight;
-    	        val4 += srcvec[b].er * srcmatrix[a*4+from2+3+b*matrix_width].weight;
+    	        val1 += srcvec[b].er * srcmatrix[a*8+from2+0+b*matrix_width].weight;
+    	        val2 += srcvec[b].er * srcmatrix[a*8+from2+1+b*matrix_width].weight;
+    	        val3 += srcvec[b].er * srcmatrix[a*8+from2+2+b*matrix_width].weight;
+    	        val4 += srcvec[b].er * srcmatrix[a*8+from2+3+b*matrix_width].weight;
+    	        
+    	        val5 += srcvec[b].er * srcmatrix[a*8+from2+4+b*matrix_width].weight;
+    	        val6 += srcvec[b].er * srcmatrix[a*8+from2+5+b*matrix_width].weight;
+    	        val7 += srcvec[b].er * srcmatrix[a*8+from2+6+b*matrix_width].weight;
+    	        val8 += srcvec[b].er * srcmatrix[a*8+from2+7+b*matrix_width].weight;
     	    }
-    	    dest[a*4+from2+0].er += val1;
-    	    dest[a*4+from2+1].er += val2;
-    	    dest[a*4+from2+2].er += val3;
-    	    dest[a*4+from2+3].er += val4;
+    	    dest[a*8+from2+0].er += val1;
+    	    dest[a*8+from2+1].er += val2;
+    	    dest[a*8+from2+2].er += val3;
+    	    dest[a*8+from2+3].er += val4;
+    	    
+    	    dest[a*8+from2+4].er += val5;
+    	    dest[a*8+from2+5].er += val6;
+    	    dest[a*8+from2+6].er += val7;
+    	    dest[a*8+from2+7].er += val8;
 	}
 	
-	for (a=a*4; a<to2-from2; a++) {
+	for (a=a*8; a<to2-from2; a++) {
 	    for (b=from; b<to; b++) {
     		dest[a+from2].er += srcvec[b].er * srcmatrix[a+from2+b*matrix_width].weight;
     	    }
@@ -673,6 +805,24 @@ void CRnnLM::matrixXvector(struct neuron *dest, struct neuron *srcvec, struct sy
     	    if (dest[a].er<-15) dest[a].er=-15;
     	}
     }
+    
+    //this is normal implementation (about 3x slower):
+    
+    /*if (type==0) {		//ac mod
+	for (b=from; b<to; b++) {
+	    for (a=from2; a<to2; a++) {
+    		dest[b].ac += srcvec[a].ac * srcmatrix[a+b*matrix_width].weight;
+    	    }
+	}
+    }
+    else 		//er mod
+    if (type==1) {
+	for (a=from2; a<to2; a++) {
+	    for (b=from; b<to; b++) {
+    		dest[a].er += srcvec[b].er * srcmatrix[a+b*matrix_width].weight;
+    	    }
+    	}
+    }*/
 }
 
 void CRnnLM::computeNet(int last_word, int word)
@@ -686,12 +836,18 @@ void CRnnLM::computeNet(int last_word, int word)
 
     //propagate 0->1
     for (a=0; a<layer1_size; a++) neu1[a].ac=0;
+    
+#ifdef USE_BLAS
+    cblas_dgemv(CblasRowMajor, CblasNoTrans, layer1_size, layer1_size, 1.0, &syn0[layer0_size-layer1_size].weight,
+     layer0_size, &neu0[layer0_size-layer1_size].ac, 2, 0.0, &neu1[0].ac, 2);
+#else
+    matrixXvector(neu1, neu0, syn0, layer0_size, 0, layer1_size, layer0_size-layer1_size, layer0_size, 0);
+#endif
 
     for (b=0; b<layer1_size; b++) {
         a=last_word;
         if (a!=-1) neu1[b].ac += neu0[a].ac * syn0[a+b*layer0_size].weight;
     }
-    matrixXvector(neu1, neu0, syn0, layer0_size, 0, layer1_size, layer0_size-layer1_size, layer0_size, 0);
 
     //activate 1      --sigmoid
     for (a=0; a<layer1_size; a++) {
@@ -700,12 +856,22 @@ void CRnnLM::computeNet(int last_word, int word)
         val=-neu1[a].ac;
         neu1[a].ac=1/(1+FAST_EXP(val));
     }
-    
-    
-    
+        
     //1->2 class
     for (b=vocab_size; b<layer2_size; b++) neu2[b].ac=0;
+    
+#ifdef USE_BLAS
+    cblas_dgemv(CblasRowMajor, CblasNoTrans, layer2_size-vocab_size, layer1_size, 1.0, &syn1[vocab_size*layer1_size].weight, layer1_size, &neu1[0].ac, 2, 0.0, &neu2[vocab_size].ac, 2);
+#else
     matrixXvector(neu2, neu1, syn1, layer1_size, vocab_size, layer2_size, 0, layer1_size, 0);
+#endif
+
+    //apply direct connections to classes
+    if (last_word!=-1) {
+	for (a=vocab_size; a<layer2_size; a++) {
+	    neu2[a].ac+=syn_dc[last_word*class_size+(a-vocab_size)].weight*1.0;
+	}
+    }
 
     //activation 2   --softmax on classes
     sum=0;
@@ -734,7 +900,21 @@ void CRnnLM::computeNet(int last_word, int word)
     // !!!!!!!!  THIS WILL WORK ONLY IF CLASSES ARE CONTINUALLY DEFINED IN VOCAB !!! (like class 10 = words 11 12 13; not 11 12 16)  !!!!!!!!
     if (word!=-1) {
         for (c=0; c<class_cn[vocab[word].class_index]; c++) neu2[class_words[vocab[word].class_index][c]].ac=0;
+#ifdef USE_BLAS
+	//cblas_dgemv(CblasRowMajor, CblasNoTrans, layer2_size-vocab_size, layer1_size, 1.0, &syn1[vocab_size*layer1_size].weight, layer1_size, &neu1[0].ac, 2, 0.0, &neu2[vocab_size].ac, 2);
+	cblas_dgemv(CblasRowMajor, CblasNoTrans, class_cn[vocab[word].class_index], layer1_size, 1.0, &syn1[class_words[vocab[word].class_index][0]*layer1_size].weight, layer1_size, &neu1[0].ac, 2, 0.0, &neu2[class_words[vocab[word].class_index][0]].ac, 2);
+#else
+	//matrixXvector(neu2, neu1, syn1, layer1_size, vocab_size, layer2_size, 0, layer1_size, 0);
 	matrixXvector(neu2, neu1, syn1, layer1_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_cn[vocab[word].class_index], 0, layer1_size, 0);
+#endif
+    }
+    
+    //apply direct connections to words
+    if ((last_word!=-1) && (word!=-1)) if (last_word<direct_size) {
+	for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+	    a=class_words[vocab[word].class_index][c];
+	    if (a<direct_size) neu2[a].ac+=syn_d[last_word*direct_size+a].weight*1.0; else break;
+	}
     }
 
     //activation 2   --softmax on words
@@ -749,7 +929,7 @@ void CRnnLM::computeNet(int last_word, int word)
     	    neu2[a].ac=val;
 	}
 	for (c=0; c<class_cn[vocab[word].class_index]; c++) neu2[class_words[vocab[word].class_index][c]].ac/=sum;
-    }    
+    }
 }
 
 void CRnnLM::learnNet(int last_word, int word)
@@ -758,14 +938,15 @@ void CRnnLM::learnNet(int last_word, int word)
     real val1, val2, val3, val4, beta2;
     
     beta2=beta*alpha;
-    
+
     if (word==-1) return;
 
+    //compute error vectors
     for (c=0; c<class_cn[vocab[word].class_index]; c++) {
 	a=class_words[vocab[word].class_index][c];
         neu2[a].er=(0-neu2[a].ac);
     }
-    neu2[word].er=(1-neu2[word].ac);
+    neu2[word].er=(1-neu2[word].ac);	//word part
 
     //flush error
     for (a=0; a<layer1_size; a++) neu1[a].er=0;
@@ -773,7 +954,29 @@ void CRnnLM::learnNet(int last_word, int word)
     for (a=vocab_size; a<layer2_size; a++) {
         neu2[a].er=(0-neu2[a].ac);
     }
-    neu2[vocab[word].class_index+vocab_size].er=(1-neu2[vocab[word].class_index+vocab_size].ac);
+    neu2[vocab[word].class_index+vocab_size].er=(1-neu2[vocab[word].class_index+vocab_size].ac);	//class part
+    
+    //
+    if (direct_size>0) {	//learn direct connections between words
+	//if (last_word!=-1) if (last_word<direct_size) for (a=0; a<1000; a++) syn_d[last_word*1000+a]+=alpha*neu2[a].er*neu0[last_word].ac;
+	if ((last_word!=-1) && (word!=-1)) if (last_word<direct_size) {
+	    for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+		a=class_words[vocab[word].class_index][c];
+		if (a<direct_size) syn_d[last_word*direct_size+a].weight+=alpha*neu2[a].er; else break;
+		//printf("%d\t%f\t%f\t%f\n", a, neu2[a].ac, neu2[a].er, neu0[last_word].ac);
+	    }
+	}
+    }
+    //
+    //learn direct connections to classes
+    if (direct_size>0) {	//learn direct connections between words and classes
+	if (last_word!=-1) {
+	    for (a=vocab_size; a<layer2_size; a++) {
+		syn_dc[last_word*class_size+(a-vocab_size)].weight+=alpha*neu2[a].er;
+	    }
+	}
+    }
+    //
     
     //propagates errors 2->1 for words (classes must be continuous in vocab)
     /*for (c=0; c<class_cn[vocab[word].class_index]; c++) {
@@ -818,7 +1021,7 @@ void CRnnLM::learnNet(int last_word, int word)
     //
     
     ///////////////
-    
+
     if (bptt==0) {
 	for (a=0; a<layer1_size; a++) neu1[a].er=neu1[a].er*neu1[a].ac*(1-neu1[a].ac);    //error derivation at layer 1
 
@@ -840,7 +1043,80 @@ void CRnnLM::learnNet(int last_word, int word)
     }
     else		//BPTT
     {
-	for (b=0; b<layer1_size; b++) bptt_hidden[b]=neu1[b].ac;
+	for (b=0; b<layer1_size; b++) bptt_hidden[b].ac=neu1[b].ac;
+	for (b=0; b<layer1_size; b++) bptt_hidden[b].er=neu1[b].er;
+	
+	if ((counter%bptt_block)==0) {
+	    for (step=0; step<bptt+bptt_block-2; step++) {
+		for (a=0; a<layer1_size; a++) neu1[a].er=neu1[a].er*neu1[a].ac*(1-neu1[a].ac);    //error derivation at layer 1
+
+ 		//weight update 1->0
+		a=bptt_history[step];
+		if (a!=-1)
+		for (b=0; b<layer1_size; b++) {
+    		    bptt_syn0[a+b*layer0_size].weight+=alpha*neu1[b].er;//*neu0[a].ac; --should be always set to 1
+		}
+	    
+		for (a=layer0_size-layer1_size; a<layer0_size; a++) neu0[a].er=0;
+		
+		matrixXvector(neu0, neu1, syn0, layer0_size, 0, layer1_size, layer0_size-layer1_size, layer0_size, 1);		//propagates errors 1->0
+		for (b=0; b<layer1_size; b++) for (a=layer0_size-layer1_size; a<layer0_size; a++) {
+		    //neu0[a].er += neu1[b].er * syn0[a+b*layer0_size].weight;
+    		    bptt_syn0[a+b*layer0_size].weight+=alpha*neu1[b].er*neu0[a].ac;
+		}
+	    
+		for (a=0; a<layer1_size; a++) {		//propagate error from time T-n to T-n-1
+    		    neu1[a].er=neu0[a+layer0_size-layer1_size].er + bptt_hidden[(step+1)*layer1_size+a].er;
+		}
+	    
+		if (step<bptt+bptt_block-3)
+		for (a=0; a<layer1_size; a++) {
+		    neu1[a].ac=bptt_hidden[(step+1)*layer1_size+a].ac;
+		    neu0[a+layer0_size-layer1_size].ac=bptt_hidden[(step+2)*layer1_size+a].ac;
+		}
+	    }
+	    
+	    for (a=0; a<(bptt+bptt_block)*layer1_size; a++) {
+		bptt_hidden[a].er=0;
+	    }
+	
+	
+	    for (b=0; b<layer1_size; b++) neu1[b].ac=bptt_hidden[b].ac;		//restore hidden layer after bptt
+		
+	
+	    //
+	    for (b=0; b<layer1_size; b++) {		//copy temporary syn0
+		if ((counter%10)==0) {
+		    for (a=layer0_size-layer1_size; a<layer0_size; a++) {
+    		        syn0[a+b*layer0_size].weight+=bptt_syn0[a+b*layer0_size].weight - syn0[a+b*layer0_size].weight*beta2;
+    			bptt_syn0[a+b*layer0_size].weight=0;
+    		    }
+		}
+		else {
+		    for (a=layer0_size-layer1_size; a<layer0_size; a++) {
+    			syn0[a+b*layer0_size].weight+=bptt_syn0[a+b*layer0_size].weight;
+    			bptt_syn0[a+b*layer0_size].weight=0;
+    		    }
+		}
+	    
+		if ((counter%10)==0) {
+		    for (step=0; step<bptt+bptt_block-2; step++) if (bptt_history[step]!=-1) {
+	    		syn0[bptt_history[step]+b*layer0_size].weight+=bptt_syn0[bptt_history[step]+b*layer0_size].weight - syn0[bptt_history[step]+b*layer0_size].weight*beta2;
+	    		bptt_syn0[bptt_history[step]+b*layer0_size].weight=0;
+	    	    }
+		}
+		else {
+		    for (step=0; step<bptt+bptt_block-2; step++) if (bptt_history[step]!=-1) {
+	    		syn0[bptt_history[step]+b*layer0_size].weight+=bptt_syn0[bptt_history[step]+b*layer0_size].weight;
+			bptt_syn0[bptt_history[step]+b*layer0_size].weight=0;
+		    }
+		}
+	    }
+	}
+    
+    
+    
+	/*for (b=0; b<layer1_size; b++) bptt_hidden[b]=neu1[b].ac;
 	
 	for (step=0; step<bptt-1; step++) {
 	    for (a=0; a<layer1_size; a++) neu1[a].er=neu1[a].er*neu1[a].ac*(1-neu1[a].ac);    //error derivation at layer 1
@@ -901,7 +1177,7 @@ void CRnnLM::learnNet(int last_word, int word)
 		    bptt_syn0[bptt_history[step]+b*layer0_size].weight=0;
 		}
 	    }
-	}
+	}*/
     }	
 }
 
@@ -934,32 +1210,38 @@ void CRnnLM::trainNet()
 	iter=0;
     }
     
+    counter=train_cur_pos;
+    
     //saveNet();
 
     while (1) {
-        iter++;
         printf("Iter: %3d\tAlpha: %f\t   ", iter, alpha);
         fflush(stdout);
         
-        if (bptt>0) for (a=0; a<bptt; a++) bptt_history[a]=-1;
+        if (bptt>0) for (a=0; a<bptt+bptt_block; a++) bptt_history[a]=-1;
 
         //TRAINING PHASE
         netFlush();
 
         fi=fopen(train_file, "rb");
         last_word=0;
-        logp=0;
-        counter=0;
+        
+        if (counter>0) for (a=0; a<counter; a++) word=readWordIndex(fi);	//this will skip words that were already learned if the training was interrupted
         
         while (1) {
     	    counter++;
     	    
-    	    if ((counter%10000)==0) if ((debug_mode>1)) {
+    	    if ((counter%1000)==0) if ((debug_mode>1)) {
     		if (train_words>0)
     		    printf("%cIter: %3d\tAlpha: %f\t   TRAIN entropy: %.4f    Progress: %.2f%%", 13, iter, alpha, -logp/log10(2)/counter, counter/(real)train_words*100);
     		else
     		    printf("%cIter: %3d\tAlpha: %f\t   TRAIN entropy: %.4f    Progress: %dK", 13, iter, alpha, -logp/log10(2)/counter, counter/1000);
     		fflush(stdout);
+    	    }
+    	    
+    	    if ((anti_k>0) && ((counter%anti_k)==0)) {
+    		train_cur_pos=counter;
+    		saveNet();
     	    }
         
 	    word=readWordIndex(fi);     //read next word
@@ -975,11 +1257,12 @@ void CRnnLM::trainNet()
 	    
             //
             if (bptt>0) {		//shift memory needed for bptt to next time step
-		for (a=bptt-1; a>0; a--) bptt_history[a]=bptt_history[a-1];
+		for (a=bptt+bptt_block-1; a>0; a--) bptt_history[a]=bptt_history[a-1];
 		bptt_history[0]=last_word;
 		
-		for (a=bptt-1; a>0; a--) for (b=0; b<layer1_size; b++) {
-		    bptt_hidden[a*layer1_size+b]=bptt_hidden[(a-1)*layer1_size+b];
+		for (a=bptt+bptt_block-1; a>0; a--) for (b=0; b<layer1_size; b++) {
+		    bptt_hidden[a*layer1_size+b].ac=bptt_hidden[(a-1)*layer1_size+b].ac;
+		    bptt_hidden[a*layer1_size+b].er=bptt_hidden[(a-1)*layer1_size+b].er;
 		}
             }
             //
@@ -994,6 +1277,13 @@ void CRnnLM::trainNet()
         fclose(fi);
 
     	printf("%cIter: %3d\tAlpha: %f\t   TRAIN entropy: %.4f    ", 13, iter, alpha, -logp/log10(2)/counter);
+    	
+    	if (one_iter==1) {	//no validation data are needed and network is always saved with modified weights
+    	    printf("\n");
+	    logp=0;
+    	    saveNet();
+            break;
+    	}
 
         //VALIDATION PHASE
         netFlush();
@@ -1039,13 +1329,16 @@ void CRnnLM::trainNet()
         fclose(flog);
     
         printf("VALID entropy: %.4f\n", -logp/log10(2)/wordcn);
+        
+        counter=0;
+	train_cur_pos=0;
 
-        if (logp<llogp)
+        if (logp*min_improvement<llogp)
             restoreWeights();
         else
             saveWeights();
 
-        if (logp*1.002<llogp) {     //***maybe put some variable here to define what is minimal improvement??
+        if (logp*min_improvement<llogp) {     //***maybe put some variable here to define what is minimal improvement??
             if (alpha_divide==0) alpha_divide=1;
             else {
                 saveNet();
@@ -1056,7 +1349,8 @@ void CRnnLM::trainNet()
         if (alpha_divide) alpha/=2;
 
         llogp=logp;
-
+        logp=0;
+        iter++;
         saveNet();
     }
 }
@@ -1097,10 +1391,11 @@ void CRnnLM::testNet()
     logp=0;
     log_other=0;
     log_combine=0;
+    prob_other=0;
     wordcn=0;
     copyHiddenLayerToInput();
     
-    if (bptt>0) for (a=0; a<bptt; a++) bptt_history[a]=-1;
+    if (bptt>0) for (a=0; a<bptt+bptt_block; a++) bptt_history[a]=-1;
     
     while (1) {
         
@@ -1143,11 +1438,12 @@ void CRnnLM::testNet()
 
         if (dynamic>0) {
             if (bptt>0) {
-                for (a=bptt-1; a>0; a--) bptt_history[a]=bptt_history[a-1];
+                for (a=bptt+bptt_block-1; a>0; a--) bptt_history[a]=bptt_history[a-1];
                 bptt_history[0]=last_word;
                                     
-                for (a=bptt-1; a>0; a--) for (b=0; b<layer1_size; b++) {
-                    bptt_hidden[a*layer1_size+b]=bptt_hidden[(a-1)*layer1_size+b];
+                for (a=bptt+bptt_block-1; a>0; a--) for (b=0; b<layer1_size; b++) {
+                    bptt_hidden[a*layer1_size+b].ac=bptt_hidden[(a-1)*layer1_size+b].ac;
+                    bptt_hidden[a*layer1_size+b].er=bptt_hidden[(a-1)*layer1_size+b].er;
         	}
             }
             //

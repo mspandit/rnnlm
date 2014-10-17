@@ -1,3 +1,5 @@
+// this simple program converts srilm output obtained in -debug 2 test mode to raw per-word probabilities
+
 #include <stdio.h>
 
 void goToDelimiter(int delim, FILE *fi)
@@ -34,7 +36,7 @@ int main()
 	goToDelimiter(']', stdin);
 	goToDelimiter(' ', stdin);
 	fscanf(stdin, "%f", &prob_other);
-	printf("%.10f\n", prob_other);
+	printf("%E\n", prob_other);
 	goToDelimiter('\n', stdin);
     }
 }
