@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3b
-// (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
+// Version 0.3c
+// (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
 
@@ -16,8 +16,6 @@
 #include "rnnlmlib.h"
 
 using namespace std;
-
-#define MAX_STRING 100
 
 int argPos(char *str, int argc, char **argv)
 {
@@ -34,6 +32,8 @@ int main(int argc, char **argv)
     
     int debug_mode=1;
     
+    int fileformat=TEXT;
+    
     int train_mode=0;
     int valid_data_set=0;
     int test_data_set=0;
@@ -43,12 +43,14 @@ int main(int argc, char **argv)
     
     int class_size=100;
     float lambda=0.75;
+    float gradient_cutoff=15;
     float dynamic=0;
     float starting_alpha=0.1;
     float regularization=0.0000001;
     float min_improvement=1.003;
     int hidden_size=30;
-    int direct=0;
+    int compression_size=0;
+    long long direct=0;
     int direct_order=3;
     int bptt=0;
     int bptt_block=10;
@@ -72,7 +74,7 @@ int main(int argc, char **argv)
     if (argc==1) {
     	//printf("Help\n");
 
-    	printf("Recurrent neural network based language modeling toolkit v 0.3b\n\n");
+    	printf("Recurrent neural network based language modeling toolkit v 0.3c\n\n");
 
     	printf("Options:\n");
 
@@ -87,6 +89,9 @@ int main(int argc, char **argv)
 
     	printf("\t-rnnlm <file>\n");
         printf("\t\tUse <file> to store rnnlm model\n");
+        
+        printf("\t-binary\n");
+        printf("\t\tRnnlm model will be saved in binary format (default is plain text)\n");
 
     	printf("\t-valid <file>\n");
     	printf("\t\tUse <file> as validation data\n");
@@ -99,6 +104,9 @@ int main(int argc, char **argv)
 
     	printf("\t-hidden <int>\n");
     	printf("\t\tSet size of hidden layer; default is 30\n");
+    	
+    	printf("\t-compression <int>\n");
+    	printf("\t\tSet size of compression layer; default is 0 (not used)\n");
     	
     	printf("\t-direct <int>\n");
     	printf("\t\tSets size of the hash for direct connections with n-gram features in millions; default is 0\n");
@@ -121,6 +129,9 @@ int main(int argc, char **argv)
     	printf("\t-min-improvement <float>\n");
     	printf("\t\tSet minimal relative entropy improvement for training convergence; default is 1.003\n");
 
+    	printf("\t-gradient-cutoff <float>\n");
+    	printf("\t\tSet maximal absolute gradient value (to improve training stability, use lower values; default is 15, to turn off use 0)\n");
+
     	//
 
     	printf("Parameters for testing phase:\n");
@@ -132,7 +143,7 @@ int main(int argc, char **argv)
     	printf("\t\tUse <file> as test data to report perplexity\n");
 
     	printf("\t-lm-prob\n");
-    	printf("\t\tUse other LM probabilities for linear interpolation with rnnlm model; see examples/*** \n");	//***
+    	printf("\t\tUse other LM probabilities for linear interpolation with rnnlm model; see examples at the rnnlm webpage\n");
 
     	printf("\t-lambda <float>\n");
     	printf("\t\tSet parameter for linear interpolation of rnnlm and other lm; default weight of rnnlm is 0.75\n");
@@ -239,6 +250,15 @@ int main(int argc, char **argv)
     }
     
     
+    //set nbest rescoring mode
+    i=argPos((char *)"-nbest", argc, argv);
+    if (i>0) {
+	nbest=1;
+        if (debug_mode>0)
+        printf("Processing test data as list of nbests\n");
+    }
+    
+    
     //search for test file
     i=argPos((char *)"-test", argc, argv);
     if (i>0) {
@@ -252,10 +272,13 @@ int main(int argc, char **argv)
         if (debug_mode>0)
         printf("test file: %s\n", test_file);
 
-        f=fopen(test_file, "rb");
-        if (f==NULL) {
-            printf("ERROR: test data file not found!\n");
-            return 0;
+	
+	if (nbest && (!strcmp(test_file, "-"))) ; else {
+            f=fopen(test_file, "rb");
+            if (f==NULL) {
+                printf("ERROR: test data file not found!\n");
+                return 0;
+            }
         }
 
         test_data_set=1;
@@ -289,6 +312,21 @@ int main(int argc, char **argv)
 
         if (debug_mode>0)
         printf("Lambda (interpolation coefficient between rnnlm and other lm): %f\n", lambda);
+    }
+    
+    
+    //set gradient cutoff
+    i=argPos((char *)"-gradient-cutoff", argc, argv);
+    if (i>0) {
+        if (i+1==argc) {
+            printf("ERROR: gradient cutoff not specified!\n");
+            return 0;
+        }
+
+        gradient_cutoff=atof(argv[i+1]);
+
+        if (debug_mode>0)
+        printf("Gradient cutoff: %f\n", gradient_cutoff);
     }
     
     
@@ -410,6 +448,21 @@ int main(int argc, char **argv)
     }
     
     
+    //set compression layer size
+    i=argPos((char *)"-compression", argc, argv);
+    if (i>0) {
+        if (i+1==argc) {
+            printf("ERROR: compression layer size not specified!\n");
+            return 0;
+        }
+
+        compression_size=atoi(argv[i+1]);
+
+        if (debug_mode>0)
+        printf("Compression layer size: %d\n", compression_size);
+    }
+    
+    
     //set direct connections
     i=argPos((char *)"-direct", argc, argv);
     if (i>0) {
@@ -492,15 +545,6 @@ int main(int argc, char **argv)
     }
     
     
-    //set nbest rescoring mode
-    i=argPos((char *)"-nbest", argc, argv);
-    if (i>0) {
-	nbest=1;
-        if (debug_mode>0)
-        printf("Processing test data as list of nbests\n");
-    }
-    
-    
     //use other lm
     i=argPos((char *)"-lm-prob", argc, argv);
     if (i>0) {
@@ -521,6 +565,16 @@ int main(int argc, char **argv)
         }
     
         use_lmprob=1;
+    }
+    
+    
+    //search for binary option
+    i=argPos((char *)"-binary", argc, argv);
+    if (i>0) {
+        if (debug_mode>0)
+        printf("Model will be saved in binary format\n");
+
+        fileformat=BINARY;
     }
     
     
@@ -569,15 +623,18 @@ int main(int argc, char **argv)
 
     	model1.setTrainFile(train_file);
     	model1.setRnnLMFile(rnnlm_file);
+    	model1.setFileType(fileformat);
     	
     	model1.setOneIter(one_iter);
     	if (one_iter==0) model1.setValidFile(valid_file);
 
 	model1.setClassSize(class_size);
     	model1.setLearningRate(starting_alpha);
+    	model1.setGradientCutoff(gradient_cutoff);
     	model1.setRegularization(regularization);
     	model1.setMinImprovement(min_improvement);
     	model1.setHiddenLayerSize(hidden_size);
+    	model1.setCompressionLayerSize(compression_size);
     	model1.setDirectSize(direct);
     	model1.setDirectOrder(direct_order);
     	model1.setBPTT(bptt);

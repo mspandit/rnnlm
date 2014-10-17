@@ -31,7 +31,13 @@
 - weights are now not reloaded if the improvement is too small
 - TODO: include all things from 0.2c version
 
-
 0.3b:
 - changed few minor things; direct connections are now specified in millions by '-direct N'
 - added modififed '-independent' switch
+
+0.3c:
+- support for binary format of model files: use '-binary' option for training; the resulting model is ~2x smaller and models are saved and loaded several times faster
+- added '-gradient-cutoff' to control maximum size of gradient (to avoid exploding gradient problem)
+- nbest lists can be now read from stdin: use '-nbest - < nbestlist.txt'
+- added support for compression layer using '-compression N' switch, where N is number of neurons; the compression layer is additional hidden layer between recurrent hidden layer and output+class layer; can be used to reduce computational complexity if many classes are used (useful probably only on very large data sets)
+- ME part of the model can now use more than 2^31 (~2G) features

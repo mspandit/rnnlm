@@ -1,8 +1,8 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3b
-// (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
+// Version 0.3c
+// (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
 
@@ -11,7 +11,8 @@
 
 #define MAX_STRING 100
 
-typedef double real;
+typedef double real;		// doubles for NN weights
+typedef double direct_t;	// doubles for ME weights; TODO: check why floats are not enough for RNNME (convergence problems)
 
 struct neuron {
     real ac;		//actual value stored in neuron
@@ -37,6 +38,8 @@ const unsigned int PRIMES_SIZE=sizeof(PRIMES)/sizeof(PRIMES[0]);
 
 const int MAX_NGRAM_ORDER=20;
 
+enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
+
 class CRnnLM{
 protected:
     char train_file[MAX_STRING];
@@ -50,9 +53,11 @@ protected:
     int debug_mode;
     
     int version;
+    int filetype;
     
     int use_lmprob;
     real lambda;
+    real gradient_cutoff;
     
     real dynamic;
     
@@ -85,9 +90,10 @@ protected:
     
     int layer0_size;
     int layer1_size;
+    int layerc_size;
     int layer2_size;
     
-    int direct_size;
+    long long direct_size;
     int direct_order;
     int history[MAX_NGRAM_ORDER];
     
@@ -103,20 +109,24 @@ protected:
     
     struct neuron *neu0;		//neurons in input layer
     struct neuron *neu1;		//neurons in hidden layer
+    struct neuron *neuc;		//neurons in hidden layer
     struct neuron *neu2;		//neurons in output layer
 
     struct synapse *syn0;		//weights between input and hidden layer
-    struct synapse *syn1;		//weights between hidden and output layer
-    struct synapse *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
+    struct synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
+    struct synapse *sync;		//weights between hidden and compression layer
+    direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     
     //backup used in training:
     struct neuron *neu0b;
     struct neuron *neu1b;
+    struct neuron *neucb;
     struct neuron *neu2b;
 
     struct synapse *syn0b;
     struct synapse *syn1b;
-    struct synapse *syn_db;
+    struct synapse *syncb;
+    direct_t *syn_db;
     
     //backup used in n-bset rescoring:
     struct neuron *neu1b2;
@@ -128,10 +138,12 @@ public:
 
     CRnnLM()		//constructor initializes variables
     {
-	version=7;
+	version=9;
+	filetype=TEXT;
 	
 	use_lmprob=0;
 	lambda=0.75;
+	gradient_cutoff=15;
 	dynamic=0;
     
 	train_file[0]=0;
@@ -175,21 +187,25 @@ public:
 	
 	neu0=NULL;
 	neu1=NULL;
+	neuc=NULL;
 	neu2=NULL;
 	
 	syn0=NULL;
 	syn1=NULL;
+	sync=NULL;
 	syn_d=NULL;
 	syn_db=NULL;
 	//backup
 	neu0b=NULL;
 	neu1b=NULL;
+	neucb=NULL;
 	neu2b=NULL;
 	
 	neu1b2=NULL;
 	
 	syn0b=NULL;
 	syn1b=NULL;
+	syncb=NULL;
 	//
 	
 	rand_seed=1;
@@ -201,7 +217,7 @@ public:
 	debug_mode=1;
 	srand(rand_seed);
 	
-	vocab_hash_size=1000000;
+	vocab_hash_size=100000000;
 	vocab_hash=(int *)malloc(sizeof(int)*vocab_hash_size);
     }
     
@@ -212,10 +228,12 @@ public:
 	if (neu0!=NULL) {
 	    free(neu0);
 	    free(neu1);
+	    if (neuc!=NULL) free(neuc);
 	    free(neu2);
 	    
 	    free(syn0);
 	    free(syn1);
+	    if (sync!=NULL) free(sync);
 	    
 	    if (syn_d!=NULL) free(syn_d);
 
@@ -224,14 +242,15 @@ public:
 	    //
 	    free(neu0b);
 	    free(neu1b);
+	    if (neucb!=NULL) free(neucb);
 	    free(neu2b);
-	    
+
 	    free(neu1b2);
 	    
 	    free(syn0b);
 	    free(syn1b);
+	    if (syncb!=NULL) free(syncb);
 	    //
-	    
 	    
 	    for (i=0; i<class_size; i++) free(class_words[i]);
 	    free(class_max_cn);
@@ -253,8 +272,11 @@ public:
     void setRnnLMFile(char *str);
     void setLMProbFile(char *str) {strcpy(lmprob_file, str);}
     
+    void setFileType(int newt) {filetype=newt;}
+    
     void setClassSize(int newSize) {class_size=newSize;}
     void setLambda(real newLambda) {lambda=newLambda;}
+    void setGradientCutoff(real newGradient) {gradient_cutoff=newGradient;}
     void setDynamic(real newD) {dynamic=newD;}
     void setGen(real newGen) {gen=newGen;}
     void setIndependent(int newVal) {independent=newVal;}
@@ -263,7 +285,8 @@ public:
     void setRegularization(real newBeta) {beta=newBeta;}
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
     void setHiddenLayerSize(int newsize) {layer1_size=newsize;}
-    void setDirectSize(int newsize) {direct_size=newsize;}
+    void setCompressionLayerSize(int newsize) {layerc_size=newsize;}
+    void setDirectSize(long long newsize) {direct_size=newsize;}
     void setDirectOrder(int newsize) {direct_order=newsize;}
     void setBPTT(int newval) {bptt=newval;}
     void setBPTTBlock(int newval) {bptt_block=newval;}
