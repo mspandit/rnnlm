@@ -24,3 +24,14 @@
 
 0.2c:
 - added '-independent' switch: sentences are processed independently, with no across sentence boundary information (hidden layer is erased at end of sentence symbol); should be used both for training and test phases
+
+0.3a:
+- rewritten implementation of direct connections; now active neurons are hashed, not all weights (much faster) + added '-direct-order N' parameter, that sets order
+  of dirrect connections (up to 20); this model alone works very well for character-based models (with -class 1 option to switch classes off)
+- weights are now not reloaded if the improvement is too small
+- TODO: include all things from 0.2c version
+
+
+0.3b:
+- changed few minor things; direct connections are now specified in millions by '-direct N'
+- added modififed '-independent' switch

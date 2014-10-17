@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.2c
+// Version 0.3b
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -30,7 +30,12 @@ struct vocab_word {
     int class_index;
 };
 
+const unsigned int PRIMES[]={108641969, 116049371, 125925907, 133333309, 145678979, 175308587, 197530793, 234567803, 251851741, 264197411, 330864029, 399999781,
+407407183, 459258997, 479012069, 545678687, 560493491, 607407037, 629629243, 656789717, 716048933, 718518067, 725925469, 733332871, 753085943, 755555077,
+782715551, 790122953, 812345159, 814814293, 893826581, 923456189, 940740127, 953085797, 985184539, 990122807};
+const unsigned int PRIMES_SIZE=sizeof(PRIMES)/sizeof(PRIMES[0]);
 
+const int MAX_NGRAM_ORDER=20;
 
 class CRnnLM{
 protected:
@@ -83,6 +88,8 @@ protected:
     int layer2_size;
     
     int direct_size;
+    int direct_order;
+    int history[MAX_NGRAM_ORDER];
     
     int bptt;
     int bptt_block;
@@ -101,7 +108,6 @@ protected:
     struct synapse *syn0;		//weights between input and hidden layer
     struct synapse *syn1;		//weights between hidden and output layer
     struct synapse *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
-    struct synapse *syn_dc;		//direct parameters between input and class layer
     
     //backup used in training:
     struct neuron *neu0b;
@@ -111,7 +117,6 @@ protected:
     struct synapse *syn0b;
     struct synapse *syn1b;
     struct synapse *syn_db;
-    struct synapse *syn_dcb;
     
     //backup used in n-bset rescoring:
     struct neuron *neu1b2;
@@ -123,7 +128,7 @@ public:
 
     CRnnLM()		//constructor initializes variables
     {
-	version=6;
+	version=7;
 	
 	use_lmprob=0;
 	lambda=0.75;
@@ -156,6 +161,7 @@ public:
 	layer1_size=30;
 	
 	direct_size=0;
+	direct_order=0;
 	
 	bptt=0;
 	bptt_block=10;
@@ -164,7 +170,7 @@ public:
 	bptt_syn0=NULL;
 	
 	gen=0;
-	
+
 	independent=0;
 	
 	neu0=NULL;
@@ -174,7 +180,7 @@ public:
 	syn0=NULL;
 	syn1=NULL;
 	syn_d=NULL;
-	syn_dc=NULL;
+	syn_db=NULL;
 	//backup
 	neu0b=NULL;
 	neu1b=NULL;
@@ -212,10 +218,8 @@ public:
 	    free(syn1);
 	    
 	    if (syn_d!=NULL) free(syn_d);
-	    if (syn_dc!=NULL) free(syn_dc);
-		
+
 	    if (syn_db!=NULL) free(syn_db);
-	    if (syn_dcb!=NULL) free(syn_dcb);
 
 	    //
 	    free(neu0b);
@@ -252,7 +256,7 @@ public:
     void setClassSize(int newSize) {class_size=newSize;}
     void setLambda(real newLambda) {lambda=newLambda;}
     void setDynamic(real newD) {dynamic=newD;}
-    void setGen(int newGen) {gen=newGen;}
+    void setGen(real newGen) {gen=newGen;}
     void setIndependent(int newVal) {independent=newVal;}
     
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
@@ -260,6 +264,7 @@ public:
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
     void setHiddenLayerSize(int newsize) {layer1_size=newsize;}
     void setDirectSize(int newsize) {direct_size=newsize;}
+    void setDirectOrder(int newsize) {direct_order=newsize;}
     void setBPTT(int newval) {bptt=newval;}
     void setBPTTBlock(int newval) {bptt_block=newval;}
     void setRandSeed(int newSeed) {rand_seed=newSeed; srand(rand_seed);}
@@ -287,7 +292,7 @@ public:
     void goToDelimiter(int delim, FILE *fi);
     void restoreNet();
     void netFlush();
-    void netReset();	//will erase just hidden layer state + bptt history (called at end of sentences in the independent mode)
+    void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
     
     void computeNet(int last_word, int word);
     void learnNet(int last_word, int word);

@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.2c
+// Version 0.3b
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -49,6 +49,7 @@ int main(int argc, char **argv)
     float min_improvement=1.003;
     int hidden_size=30;
     int direct=0;
+    int direct_order=3;
     int bptt=0;
     int bptt_block=10;
     int gen=0;
@@ -71,7 +72,7 @@ int main(int argc, char **argv)
     if (argc==1) {
     	//printf("Help\n");
 
-    	printf("Recurrent neural network based language modeling toolkit v 0.2c\n\n");
+    	printf("Recurrent neural network based language modeling toolkit v 0.3b\n\n");
 
     	printf("Options:\n");
 
@@ -100,7 +101,10 @@ int main(int argc, char **argv)
     	printf("\t\tSet size of hidden layer; default is 30\n");
     	
     	printf("\t-direct <int>\n");
-    	printf("\t\tWill use direct connections between input and output layers for most frequent <int> words; default is 0\n");
+    	printf("\t\tSets size of the hash for direct connections with n-gram features in millions; default is 0\n");
+    	
+    	printf("\t-direct-order <int>\n");
+    	printf("\t\tSets the n-gram order for direct connections (max %d); default is 3\n", MAX_NGRAM_ORDER);
     	
     	printf("\t-bptt <int>\n");
     	printf("\t\tSet amount of steps to propagate error back in time; default is 0 (equal to simple RNN)\n");
@@ -144,7 +148,7 @@ int main(int argc, char **argv)
     	printf("\t\tGenerate specified amount of words given distribution from current model\n");
     	
     	printf("\t-independent\n");
-    	printf("\t\tWill erase history at end of each sentence\n");
+    	printf("\t\tWill erase history at end of each sentence (if used for training, this switch should be used also for testing & rescoring)\n");
 
     	printf("\nExamples:\n");
     	printf("rnnlm -train train -rnnlm model -valid valid -hidden 50\n");
@@ -321,7 +325,7 @@ int main(int argc, char **argv)
     //set independent
     i=argPos((char *)"-independent", argc, argv);
     if (i>0) {
-	independent=1;
+        independent=1;
 
         if (debug_mode>0)
         printf("Sentences will be processed independently...\n");
@@ -415,9 +419,28 @@ int main(int argc, char **argv)
         }
 
         direct=atoi(argv[i+1]);
+        
+        direct*=1000000;
+	if (direct<0) direct=0;
 
         if (debug_mode>0)
-        printf("Direct connections: %d\n", direct);
+        printf("Direct connections: %dM\n", direct/1000000);
+    }
+    
+    
+    //set order of direct connections
+    i=argPos((char *)"-direct-order", argc, argv);
+    if (i>0) {
+        if (i+1==argc) {
+            printf("ERROR: direct order not specified!\n");
+            return 0;
+        }
+
+        direct_order=atoi(argv[i+1]);
+        if (direct_order>MAX_NGRAM_ORDER) direct_order=MAX_NGRAM_ORDER;
+
+        if (debug_mode>0)
+        printf("Order of direct connections: %d\n", direct_order);
     }
     
     
@@ -431,7 +454,7 @@ int main(int argc, char **argv)
 
         bptt=atoi(argv[i+1]);
         bptt++;
-        if (bptt<1) bptt=0;
+        if (bptt<1) bptt=1;
 
         if (debug_mode>0)
         printf("BPTT: %d\n", bptt-1);
@@ -556,12 +579,13 @@ int main(int argc, char **argv)
     	model1.setMinImprovement(min_improvement);
     	model1.setHiddenLayerSize(hidden_size);
     	model1.setDirectSize(direct);
+    	model1.setDirectOrder(direct_order);
     	model1.setBPTT(bptt);
     	model1.setBPTTBlock(bptt_block);
     	model1.setRandSeed(rand_seed);
     	model1.setDebugMode(debug_mode);
     	model1.setAntiKasparek(anti_k);
-    	model1.setIndependent(independent);
+	model1.setIndependent(independent);
     	
     	model1.alpha_set=alpha_set;
     	model1.train_file_set=train_file_set;
@@ -581,7 +605,7 @@ int main(int argc, char **argv)
         model1.useLMProb(use_lmprob);
         if (use_lmprob) model1.setLMProbFile(lmprob_file);
         model1.setDebugMode(debug_mode);
-        model1.setIndependent(independent);
+	model1.setIndependent(independent);
 
 	if (nbest==0) model1.testNet();
 	else model1.testNbest();
