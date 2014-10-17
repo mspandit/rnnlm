@@ -1,8 +1,9 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3e
+// Version 0.4a
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
+// (c) 2013 Cantab Research Ltd (info@cantabResearch.com)
 //
 ///////////////////////////////////////////////////////////////////////
 
@@ -11,8 +12,12 @@
 
 #define MAX_STRING 100
 
-typedef double real;		// doubles for NN weights
-typedef double direct_t;	// doubles for ME weights; TODO: check why floats are not enough for RNNME (convergence problems)
+#ifndef WEIGHTTYPE
+#define WEIGHTTYPE double
+#endif
+
+typedef WEIGHTTYPE real;	// NN weights
+typedef WEIGHTTYPE direct_t;	// ME weights
 
 struct neuron {
     real ac;		//actual value stored in neuron
@@ -74,6 +79,7 @@ protected:
     int counter;
     
     int one_iter;
+    int maxIter;
     int anti_k;
     
     real beta;
@@ -215,6 +221,7 @@ public:
 	old_classes=0;
 	
 	one_iter=0;
+  maxIter=0;
 	
 	debug_mode=1;
 	srand(rand_seed);
@@ -301,6 +308,7 @@ public:
     void setDebugMode(int newDebug) {debug_mode=newDebug;}
     void setAntiKasparek(int newAnti) {anti_k=newAnti;}
     void setOneIter(int newOneIter) {one_iter=newOneIter;}
+    void setMaxIter(int newMaxIter) {maxIter=newMaxIter;}
     
     int getWordHash(char *word);
     void readWord(char *word, FILE *fin);

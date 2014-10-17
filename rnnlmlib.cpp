@@ -1,8 +1,9 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3e
+// Version 0.4a
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
+// (c) 2013 Cantab Research Ltd (info@cantabResearch.com)
 //
 ///////////////////////////////////////////////////////////////////////
 
@@ -11,18 +12,9 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#include <cfloat>
+#include "fastexp.h"
 #include "rnnlmlib.h"
-
-///// fast exp() implementation
-static union{
-    double d;
-    struct{
-        int j,i;
-        } n;
-} d2i;
-#define EXP_A (1048576/M_LN2)
-#define EXP_C 60801
-#define FAST_EXP(y) (d2i.n.i = EXP_A*(y)+(1072693248-EXP_C),d2i.d)
 
 ///// include blas
 #ifdef USE_BLAS
@@ -574,7 +566,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
     if (filetype==BINARY) {
     	for (a=0; a<layer1_size; a++) {
     	    fl=neu1[a].ac;
-    	    fwrite(&fl, 4, 1, fo);
+    	    fwrite(&fl, sizeof(fl), 1, fo);
     	}
     }
     //////////
@@ -590,7 +582,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	for (b=0; b<layer1_size; b++) {
     	    for (a=0; a<layer0_size; a++) {
     		fl=syn0[a+b*layer0_size].weight;
-    		fwrite(&fl, 4, 1, fo);
+    		fwrite(&fl, sizeof(fl), 1, fo);
     	    }
 	}
     }
@@ -626,14 +618,14 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	    for (b=0; b<layerc_size; b++) {
 		for (a=0; a<layer1_size; a++) {
 		    fl=syn1[a+b*layer1_size].weight;
-    		    fwrite(&fl, 4, 1, fo);
+    		    fwrite(&fl, sizeof(fl), 1, fo);
     		}
     	    }
     	
 	    for (b=0; b<layer2_size; b++) {
 		for (a=0; a<layerc_size; a++) {
     		    fl=sync[a+b*layerc_size].weight;
-    		    fwrite(&fl, 4, 1, fo);
+    		    fwrite(&fl, sizeof(fl), 1, fo);
     		}
     	    }
 	}
@@ -642,7 +634,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	    for (b=0; b<layer2_size; b++) {
 		for (a=0; a<layer1_size; a++) {
     		    fl=syn1[a+b*layer1_size].weight;
-    		    fwrite(&fl, 4, 1, fo);
+    		    fwrite(&fl, sizeof(fl), 1, fo);
     		}
     	    }
     	}
@@ -651,7 +643,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
     if (filetype==TEXT) {
 	fprintf(fo, "\nDirect connections:\n");
 	long long aa;
-	for (aa=0; aa<direct_size; aa++) {
+ 	for (aa=0; aa<direct_size; aa++) {
     	    fprintf(fo, "%.2f\n", syn_d[aa]);
 	}
     }
@@ -659,7 +651,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	long long aa;
 	for (aa=0; aa<direct_size; aa++) {
     	    fl=syn_d[aa];
-    	    fwrite(&fl, 4, 1, fo);
+    	    fwrite(&fl, sizeof(fl), 1, fo);
     	    
     	    /*fl=syn_d[aa]*4*256;			//saving direct connections this way will save 50% disk space; several times more compression is doable by clustering
     	    if (fl>(1<<15)-1) fl=(1<<15)-1;
@@ -825,7 +817,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
     if (filetype==BINARY) {
 	fgetc(fi);
 	for (a=0; a<layer1_size; a++) {
-	    fread(&fl, 4, 1, fi);
+	    fread(&fl, sizeof(fl), 1, fi);
 	    neu1[a].ac=fl;
 	}
     }
@@ -842,7 +834,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
     if (filetype==BINARY) {
 	for (b=0; b<layer1_size; b++) {
     	    for (a=0; a<layer0_size; a++) {
-    		fread(&fl, 4, 1, fi);
+    		fread(&fl, sizeof(fl), 1, fi);
 		syn0[a+b*layer0_size].weight=fl;
     	    }
 	}
@@ -881,7 +873,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	if (layerc_size==0) {	//no compress layer
 	    for (b=0; b<layer2_size; b++) {
     		for (a=0; a<layer1_size; a++) {
-    		    fread(&fl, 4, 1, fi);
+    		    fread(&fl, sizeof(fl), 1, fi);
 		    syn1[a+b*layer1_size].weight=fl;
     		}
     	    }
@@ -890,14 +882,14 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	{				//with compress layer
 	    for (b=0; b<layerc_size; b++) {
     		for (a=0; a<layer1_size; a++) {
-    		    fread(&fl, 4, 1, fi);
+    		    fread(&fl, sizeof(fl), 1, fi);
 		    syn1[a+b*layer1_size].weight=fl;
     		}
     	    }
     	
     	    for (b=0; b<layer2_size; b++) {
     		for (a=0; a<layerc_size; a++) {
-    		    fread(&fl, 4, 1, fi);
+    		    fread(&fl, sizeof(fl), 1, fi);
 		    sync[a+b*layerc_size].weight=fl;
     		}
     	    }
@@ -916,7 +908,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
     if (filetype==BINARY) {
 	long long aa;
     	for (aa=0; aa<direct_size; aa++) {
-    	    fread(&fl, 4, 1, fi);
+    	    fread(&fl, sizeof(fl), 1, fi);
 	    syn_d[aa]=fl;
 	    
 	    /*fread(&si, 2, 1, fi);
@@ -1118,7 +1110,7 @@ void CRnnLM::computeNet(int last_word, int word)
 	if (neu1[a].ac>50) neu1[a].ac=50;  //for numerical stability
         if (neu1[a].ac<-50) neu1[a].ac=-50;  //for numerical stability
         val=-neu1[a].ac;
-        neu1[a].ac=1/(1+FAST_EXP(val));
+        neu1[a].ac=1/(1+fasterexp(val));
     }
     
     if (layerc_size>0) {
@@ -1128,7 +1120,7 @@ void CRnnLM::computeNet(int last_word, int word)
 	    if (neuc[a].ac>50) neuc[a].ac=50;  //for numerical stability
     	    if (neuc[a].ac<-50) neuc[a].ac=-50;  //for numerical stability
     	    val=-neuc[a].ac;
-    	    neuc[a].ac=1/(1+FAST_EXP(val));
+    	    neuc[a].ac=1/(1+fasterexp(val));
 	}
     }
         
@@ -1167,16 +1159,17 @@ void CRnnLM::computeNet(int last_word, int word)
     }
 
     //activation 2   --softmax on classes
+    // 20130425 - this is now a 'safe' softmax
+
     sum=0;
-    for (a=vocab_size; a<layer2_size; a++) {
-	if (neu2[a].ac>50) neu2[a].ac=50;  //for numerical stability
-	if (neu2[a].ac<-50) neu2[a].ac=-50;  //for numerical stability
-        val=FAST_EXP(neu2[a].ac);
-        sum+=val;
-        neu2[a].ac=val;
-    }
-    for (a=vocab_size; a<layer2_size; a++) neu2[a].ac/=sum;         //output layer activations now sum exactly to 1
-    
+    real maxAc=-FLT_MAX;
+    for (a=vocab_size; a<layer2_size; a++)
+        if (neu2[a].ac>maxAc) maxAc=neu2[a].ac; //this prevents the need to check for overflow
+    for (a=vocab_size; a<layer2_size; a++)
+        sum+=fasterexp(neu2[a].ac-maxAc);
+    for (a=vocab_size; a<layer2_size; a++)
+        neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; 
+ 
     if (gen>0) return;	//if we generate words, we don't know what current word is -> only classes are estimated and word is selected in testGen()
 
     
@@ -1220,17 +1213,22 @@ void CRnnLM::computeNet(int last_word, int word)
     }
 
     //activation 2   --softmax on words
+    // 130425 - this is now a 'safe' softmax
     sum=0;
-    if (word!=-1) {
-	for (c=0; c<class_cn[vocab[word].class_index]; c++) {
-	    a=class_words[vocab[word].class_index][c];
-	    if (neu2[a].ac>50) neu2[a].ac=50;  //for numerical stability
-	    if (neu2[a].ac<-50) neu2[a].ac=-50;  //for numerical stability
-    	    val=FAST_EXP(neu2[a].ac);
-    	    sum+=val;
-    	    neu2[a].ac=val;
-	}
-	for (c=0; c<class_cn[vocab[word].class_index]; c++) neu2[class_words[vocab[word].class_index][c]].ac/=sum;
+    if (word!=-1) { 
+        maxAc=-FLT_MAX;
+        for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+            a=class_words[vocab[word].class_index][c];
+            if (neu2[a].ac>maxAc) maxAc=neu2[a].ac;
+        }
+        for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+            a=class_words[vocab[word].class_index][c];
+            sum+=fasterexp(neu2[a].ac-maxAc);
+        }
+        for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+            a=class_words[vocab[word].class_index][c];
+            neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; //this prevents the need to check for overflow
+        }
     }
 }
 
@@ -1512,10 +1510,8 @@ void CRnnLM::trainNet()
     }
     
     counter=train_cur_pos;
-    
     //saveNet();
-
-    while (1) {
+    while (iter < maxIter) {
         printf("Iter: %3d\tAlpha: %f\t   ", iter, alpha);
         fflush(stdout);
         
@@ -1946,7 +1942,7 @@ void CRnnLM::testNbest()
 void CRnnLM::testGen()
 {
     int i, word, cla, last_word, wordcn, c, b, a=0;
-    real f, g, sum, val;
+    real f, g, sum;
     
     restoreNet();
     
@@ -2002,16 +1998,22 @@ void CRnnLM::testGen()
 	}
         
         //activation 2   --softmax on words
-	sum=0;
-    	for (c=0; c<class_cn[cla]; c++) {
-    	    a=class_words[cla][c];
-    	    if (neu2[a].ac>50) neu2[a].ac=50;  //for numerical stability
-    	    if (neu2[a].ac<-50) neu2[a].ac=-50;  //for numerical stability
-    	    val=FAST_EXP(neu2[a].ac);
-    	    sum+=val;
-    	    neu2[a].ac=val;
-    	}
-    	for (c=0; c<class_cn[cla]; c++) neu2[class_words[cla][c]].ac/=sum;
+        // 130425 - this is now a 'safe' softmax
+
+        sum=0;
+        real maxAc=-FLT_MAX;
+      	for (c=0; c<class_cn[cla]; c++) {
+      	    a=class_words[cla][c];
+            if (neu2[a].ac>maxAc) maxAc=neu2[a].ac;
+        }
+        for (c=0; c<class_cn[cla]; c++) {
+            a=class_words[cla][c];
+            sum+=fasterexp(neu2[a].ac-maxAc);
+        }
+        for (c=0; c<class_cn[cla]; c++) {
+            a=class_words[cla][c];
+            neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; //this prevents the need to check for overflow
+        }
 	//
 	
 	f=random(0, 1);

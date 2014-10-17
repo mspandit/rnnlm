@@ -1,8 +1,9 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3e
+// Version 0.4a
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
+// (c) 2013 Cantab Research Ltd (info@cantabResearch.com)
 //
 ///////////////////////////////////////////////////////////////////////
 
@@ -13,6 +14,7 @@
 #include <math.h>
 #include <fstream>
 #include <iostream>
+#include <limits.h>
 #include "rnnlmlib.h"
 
 using namespace std;
@@ -61,6 +63,7 @@ int main(int argc, char **argv)
     int rand_seed=1;
     int nbest=0;
     int one_iter=0;
+    int maxIter=INT_MAX;
     int anti_k=0;
     
     char train_file[MAX_STRING];
@@ -125,6 +128,9 @@ int main(int argc, char **argv)
     	
     	printf("\t-one-iter\n");
     	printf("\t\tWill cause training to perform exactly one iteration over training data (useful for adapting final models on different data etc.)\n");
+
+    	printf("\t-max-iter\n");
+    	printf("\t\tWill cause training to perform exactly <max-iter> iterations over training data (useful to test static learning rates if min-improvement is set to 0.0)\n");
     	
     	printf("\t-anti-kasparek <int>\n");
     	printf("\t\tModel will be saved during training after processing specified amount of words\n");
@@ -220,6 +226,21 @@ int main(int argc, char **argv)
 
         if (debug_mode>0)
         printf("Training for one iteration\n");
+    }
+
+    //set max-iter
+    i=argPos((char *)"-max-iter", argc, argv);
+    if (i>0) {
+
+        if (i+1==argc) {
+            printf("ERROR: maximum number of iterations not specified!\n");
+            return 0;
+        }
+
+        maxIter=atoi(argv[i+1]);
+
+        if (debug_mode>0)
+        printf("Maximum number of iterations: %d\n", maxIter);
     }
     
     
@@ -636,6 +657,7 @@ int main(int argc, char **argv)
     	model1.setFileType(fileformat);
     	
     	model1.setOneIter(one_iter);
+    	model1.setMaxIter(maxIter);
     	if (one_iter==0) model1.setValidFile(valid_file);
 
 	model1.setClassSize(class_size);
@@ -657,7 +679,6 @@ int main(int argc, char **argv)
     	
     	model1.alpha_set=alpha_set;
     	model1.train_file_set=train_file_set;
-
     	model1.trainNet();
     }
     

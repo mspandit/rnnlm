@@ -1,0 +1,60 @@
+Changes were made by Tom Ash and Tony Robinson at Cantab Research Ltd
+Contact: info@cantabResearch.com
+
+Release 0.4a
+25 September 2013
+
+As we are aware that this is public code in wide use within the community, we only made 'safe' changes that would not degrade performance for current users, rather than fundamental changes that may not be suitable for all current users.
+
+We hope that any future releases will likewise follow this 'do no harm' policy.
+
+Our rationale for each change:
+
+We found that the numerical stability checks as part of the softmax in version 0.3e (if (neu2[a].ac>50) neu2[a].ac=50;) were in themselves causing occasional instability.   The safe way to do this is to subtract the maximum value and this results in an exact solution fixing the instability problems.
+
+With the softmax fixed we were able to switch to using floats rather than doubles, with no loss of performance.  This both speeds up the code and reduces its memory requirements whilst running.
+
+We introduced a faster exponential approximation, which achieves near identical accuracy (average abs error 1.5% in both cases) to the rnnlm0.3e FAST_EXP approximation in less time.   The old version used 32bits of a double to approximate exp() as does the current version.
+
+We found that in some situations it was preferable to limit the number of training iterations, so introduced the max-iter option to allow that.  If max-iter is not selected as a flag, behaviour is identical to rnnlm0.3e.
+
+Finally, as a performance comparison:
+rnnlm-0.3e/rnnlm -train rnnlm-0.3e/train -valid rnnlm-0.3e/valid -hidden 50 -rnnlm model
+rnnlm-0.3e/rnnlm -test rnnlm-0.3e/test -rnnlm model
+PPL net: 74.175225
+Training took 42s on our system
+
+rnnlm-0.4a/rnnlm -train rnnlm-0.4a/train -valid rnnlm-0.4a/valid -hidden 50 -rnnlm model
+rnnlm-0.4a/rnnlm -test rnnlm-0.4a/test -rnnlm model
+PPL net: 74.216991
+Training took 35s on our system
+
+This shows that perplexity difference is within sampling noise, but release 0.4a is significantly faster. 
+
+The memory usage in these two cases does not differ much, however if we scale up to -hidden 500 and use a larger vocabulary (60,000 words) we see using top:
+rnnlm0.3e 1.3GB
+rnnlm0.4a 842MB
+Version 0.4a uses less memory.
+
+
+Release 0.4b
+25 November 2013
+
+The code was tested to allow direct connections to be compiled as floats as well as the main rnnlm weights.
+
+The Kaldi task was taken as a benchmark for performance.   The results of different versions are:
+
+ 	     	   rnnlm-0.3e	  rnnlm-0.4a	 rnnlm-0.4b
+		   rnnlm double	  rnnlm float	 rnnlm float
+		   direct double  direct double	 direct float
+
+rnnlm.h30.voc10k   125.82     	  125.11	 125.84
+rnnlm.h100.voc20k  105.85         105.87	 106.24
+rnnlm.h200.voc30k  98.65     	  97.84	 	 98.23
+rnnlm.h300.voc40k  93.77     	  94.06		 94.63
+
+This release allows you to chose the weight type at compile time.   The old rnnlm-0.3e behaviour is the default, to get reduced memory usage and slightly faster training use:
+
+$ make 
+
+Note that the example use in the Kaldi code takes a lot of memory (previously up to 16G) and the use of floats halves this memory requirement.

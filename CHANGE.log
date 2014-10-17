@@ -50,3 +50,13 @@
 0.3e:
 - parameters -old-classes and -independent are now stored in model file to avoid problems
 - removed bug in generation of words from RNNME models - thanks to YongZhe Shi
+
+0.4a (see CHANGE-Cantab.log for details):
+- switched to using floats instead of doubles for speed and size
+- an even faster exp function used (from Paul Mineiro - http://www.machinedlearnings.com/2011/06/fast-approximate-logarithm-exponential.html)
+- safe softmax implemented
+- max-iter added (if -min-improvement set to 0.0 this allows for tests where training has a static learning rate and proceeds for a set number of iterations)
+- fixed bug in example.sh for first invocation
+
+0.4b (see CHANGE-Cantab.log for details):
+- now use make  make CC=g++ WEIGHTTYPE=float to get float weights and direct connections (default is double)
