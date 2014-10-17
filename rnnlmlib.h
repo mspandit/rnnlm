@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3d
+// Version 0.3e
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -139,7 +139,7 @@ public:
 
     CRnnLM()		//constructor initializes variables
     {
-	version=9;
+	version=10;
 	filetype=TEXT;
 	
 	use_lmprob=0;

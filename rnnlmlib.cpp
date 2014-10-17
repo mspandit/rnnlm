@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3d
+// Version 0.3e
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -555,6 +555,9 @@ void CRnnLM::saveNet()       //will save the whole network structure
     fprintf(fo, "vocabulary size: %d\n", vocab_size);
     fprintf(fo, "class size: %d\n", class_size);
     
+    fprintf(fo, "old classes: %d\n", old_classes);
+    fprintf(fo, "independent sentences mode: %d\n", independent);
+    
     fprintf(fo, "starting learning rate: %f\n", starting_alpha);
     fprintf(fo, "current learning rate: %f\n", alpha);
     fprintf(fo, "learning rate decrease: %d\n", alpha_divide);
@@ -770,6 +773,12 @@ void CRnnLM::restoreNet()    //will read whole network structure
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%d", &class_size);
+    //
+    goToDelimiter(':', fi);
+    fscanf(fi, "%d", &old_classes);
+    //
+    goToDelimiter(':', fi);
+    fscanf(fi, "%d", &independent);
     //
     goToDelimiter(':', fi);
     fscanf(fi, "%lf", &d);
@@ -1975,14 +1984,14 @@ void CRnnLM::testGen()
             for (a=0; a<direct_order; a++) {
                 b=0;
                 if (a>0) if (history[a-1]==-1) break;
-                hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab[word].class_index+1);
+                hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(cla+1);
 
                 for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
                 hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
     	    }
 
-    	    for (c=0; c<class_cn[vocab[word].class_index]; c++) {
-        	a=class_words[vocab[word].class_index][c];
+    	    for (c=0; c<class_cn[cla]; c++) {
+        	a=class_words[cla][c];
 
         	for (b=0; b<direct_order; b++) if (hash[b]) {
     		    neu2[a].ac+=syn_d[hash[b]];

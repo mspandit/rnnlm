@@ -44,5 +44,9 @@
 
 0.3d:
 - few small bugs removed
-- new algorithm for computing classes: works a bit worse (~2% in PPL), but with small hidden layer and large output layer, provides large speed-ups (~2-4x)
+- new algorithm for computing classes: works a bit worse (~2% in PPL), but with small hidden layer and large output layer, provides large speed-ups (~2-4x) - thanks to Dan Povey
 - old classes can be used if model is trained with '-old-classes' option
+
+0.3e:
+- parameters -old-classes and -independent are now stored in model file to avoid problems
+- removed bug in generation of words from RNNME models - thanks to YongZhe Shi

@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.3d
+// Version 0.3e
 // (c) 2010-2012 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -673,7 +673,6 @@ int main(int argc, char **argv)
         model1.useLMProb(use_lmprob);
         if (use_lmprob) model1.setLMProbFile(lmprob_file);
         model1.setDebugMode(debug_mode);
-	model1.setIndependent(independent);
 
 	if (nbest==0) model1.testNet();
 	else model1.testNbest();
@@ -686,7 +685,6 @@ int main(int argc, char **argv)
 	model1.setDebugMode(debug_mode);
 	model1.setRandSeed(rand_seed);
 	model1.setGen(gen);
-	model1.setIndependent(independent);
     
 	model1.testGen();
     }
