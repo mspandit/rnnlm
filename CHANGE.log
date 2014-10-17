@@ -21,3 +21,6 @@
 0.2b:
 - added '-direct N' parameter to allow direct connections between top N words at input and output layers + between all input words and
   all classes at output layer (for values >0)
+
+0.2c:
+- added '-independent' switch: sentences are processed independently, with no across sentence boundary information (hidden layer is erased at end of sentence symbol); should be used both for training and test phases

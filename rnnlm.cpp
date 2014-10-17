@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.2b
+// Version 0.2c
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -52,6 +52,7 @@ int main(int argc, char **argv)
     int bptt=0;
     int bptt_block=10;
     int gen=0;
+    int independent=0;
     int rnnlm_exist=0;
     int use_lmprob=0;
     int rand_seed=1;
@@ -70,7 +71,7 @@ int main(int argc, char **argv)
     if (argc==1) {
     	//printf("Help\n");
 
-    	printf("Recurrent neural network based language modeling toolkit v 0.2b\n\n");
+    	printf("Recurrent neural network based language modeling toolkit v 0.2c\n\n");
 
     	printf("Options:\n");
 
@@ -137,10 +138,13 @@ int main(int argc, char **argv)
     	
     	//
 
-    	printf("Parameters for data generation:\n");
+    	printf("Additional parameters:\n");
     	
     	printf("\t-gen <int>\n");
     	printf("\t\tGenerate specified amount of words given distribution from current model\n");
+    	
+    	printf("\t-independent\n");
+    	printf("\t\tWill erase history at end of each sentence\n");
 
     	printf("\nExamples:\n");
     	printf("rnnlm -train train -rnnlm model -valid valid -hidden 50\n");
@@ -311,6 +315,16 @@ int main(int argc, char **argv)
 
         if (debug_mode>0)
         printf("Generating # words: %d\n", gen);
+    }
+    
+    
+    //set independent
+    i=argPos((char *)"-independent", argc, argv);
+    if (i>0) {
+	independent=1;
+
+        if (debug_mode>0)
+        printf("Sentences will be processed independently...\n");
     }
     
     
@@ -547,6 +561,7 @@ int main(int argc, char **argv)
     	model1.setRandSeed(rand_seed);
     	model1.setDebugMode(debug_mode);
     	model1.setAntiKasparek(anti_k);
+    	model1.setIndependent(independent);
     	
     	model1.alpha_set=alpha_set;
     	model1.train_file_set=train_file_set;
@@ -566,6 +581,7 @@ int main(int argc, char **argv)
         model1.useLMProb(use_lmprob);
         if (use_lmprob) model1.setLMProbFile(lmprob_file);
         model1.setDebugMode(debug_mode);
+        model1.setIndependent(independent);
 
 	if (nbest==0) model1.testNet();
 	else model1.testNbest();
@@ -578,6 +594,7 @@ int main(int argc, char **argv)
 	model1.setDebugMode(debug_mode);
 	model1.setRandSeed(rand_seed);
 	model1.setGen(gen);
+	model1.setIndependent(independent);
     
 	model1.testGen();
     }

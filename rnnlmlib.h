@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.2b
+// Version 0.2c
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -91,6 +91,8 @@ protected:
     struct synapse *bptt_syn0;
     
     int gen;
+
+    int independent;
     
     struct neuron *neu0;		//neurons in input layer
     struct neuron *neu1;		//neurons in hidden layer
@@ -163,6 +165,8 @@ public:
 	
 	gen=0;
 	
+	independent=0;
+	
 	neu0=NULL;
 	neu1=NULL;
 	neu2=NULL;
@@ -208,10 +212,10 @@ public:
 	    free(syn1);
 	    
 	    if (syn_d!=NULL) free(syn_d);
-	    if (syn_d!=NULL) free(syn_dc);
+	    if (syn_dc!=NULL) free(syn_dc);
 		
-	    if (syn_d!=NULL) free(syn_db);
-	    if (syn_d!=NULL) free(syn_dcb);
+	    if (syn_db!=NULL) free(syn_db);
+	    if (syn_dcb!=NULL) free(syn_dcb);
 
 	    //
 	    free(neu0b);
@@ -248,7 +252,8 @@ public:
     void setClassSize(int newSize) {class_size=newSize;}
     void setLambda(real newLambda) {lambda=newLambda;}
     void setDynamic(real newD) {dynamic=newD;}
-    void setGen(real newGen) {gen=newGen;}
+    void setGen(int newGen) {gen=newGen;}
+    void setIndependent(int newVal) {independent=newVal;}
     
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
     void setRegularization(real newBeta) {beta=newBeta;}
@@ -282,6 +287,7 @@ public:
     void goToDelimiter(int delim, FILE *fi);
     void restoreNet();
     void netFlush();
+    void netReset();	//will erase just hidden layer state + bptt history (called at end of sentences in the independent mode)
     
     void computeNet(int last_word, int word);
     void learnNet(int last_word, int word);

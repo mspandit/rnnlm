@@ -11,7 +11,7 @@ rm model
 rm model.output.txt
 
 #rnn model is trained here
-time ./rnnlm -train train -valid valid -rnnlm model -hidden 80 -rand-seed 1 -debug 1 -class 100 -bptt 4 -bptt-block 10
+time ./rnnlm -train train -valid valid -rnnlm model -hidden 10 -rand-seed 1 -debug 1 -class 100 -bptt 4 -bptt-block 10 -independent
 
 #ngram model is trained here, using SRILM tools
 ngram-count -text train -order 5 -lm templm -kndiscount -interpolate -gt3min 1 -gt4min 1
@@ -21,4 +21,4 @@ gcc convert.c -O2 -o convert
 ./convert <temp.ppl >srilm.txt
 
 #combination of both models is performed here
-time ./rnnlm -rnnlm model -test test -lm-prob srilm.txt -lambda 0.5
+time ./rnnlm -rnnlm model -test test -lm-prob srilm.txt -lambda 0.5 -independent

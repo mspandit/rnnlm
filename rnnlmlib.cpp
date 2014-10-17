@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////
 //
 // Recurrent neural network based statistical language modeling toolkit
-// Version 0.2b
+// Version 0.2c
 // (c) 2010 Tomas Mikolov (tmikolov@gmail.com)
 //
 ///////////////////////////////////////////////////////////////////////
@@ -714,6 +714,25 @@ void CRnnLM::netFlush()   //cleans all activations and error vectors
     }
 }
 
+void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
+{
+    int a, b;
+
+    for (a=0; a<layer1_size; a++) {
+        neu1[a].ac=1.0;
+    }
+    
+    copyHiddenLayerToInput();
+    
+    if (bptt>0) {
+	for (a=1; a<bptt+bptt_block; a++) bptt_history[a]=-1;
+	for (a=bptt+bptt_block-1; a>1; a--) for (b=0; b<layer1_size; b++) {
+	    bptt_hidden[a*layer1_size+b].ac=0;
+	    bptt_hidden[a*layer1_size+b].er=0;
+	}
+    }
+}
+
 void CRnnLM::matrixXvector(struct neuron *dest, struct neuron *srcvec, struct synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type)
 {
     int a, b;
@@ -1046,7 +1065,7 @@ void CRnnLM::learnNet(int last_word, int word)
 	for (b=0; b<layer1_size; b++) bptt_hidden[b].ac=neu1[b].ac;
 	for (b=0; b<layer1_size; b++) bptt_hidden[b].er=neu1[b].er;
 	
-	if ((counter%bptt_block)==0) {
+	if (((counter%bptt_block)==0) || (independent && (word==0))) {
 	    for (step=0; step<bptt+bptt_block-2; step++) {
 		for (a=0; a<layer1_size; a++) neu1[a].er=neu1[a].er*neu1[a].ac*(1-neu1[a].ac);    //error derivation at layer 1
 
@@ -1080,9 +1099,7 @@ void CRnnLM::learnNet(int last_word, int word)
 		bptt_hidden[a].er=0;
 	    }
 	
-	
 	    for (b=0; b<layer1_size; b++) neu1[b].ac=bptt_hidden[b].ac;		//restore hidden layer after bptt
-		
 	
 	    //
 	    for (b=0; b<layer1_size; b++) {		//copy temporary syn0
@@ -1273,6 +1290,8 @@ void CRnnLM::trainNet()
             if (last_word!=-1) neu0[last_word].ac=0;  //delete previous activation
 
             last_word=word;
+            
+            if (independent && (word==0)) netReset();
         }
         fclose(fi);
 
@@ -1319,6 +1338,8 @@ void CRnnLM::trainNet()
             if (last_word!=-1) neu0[last_word].ac=0;  //delete previous activation
 
             last_word=word;
+            
+            if (independent && (word==0)) netReset();
         }
         fclose(fi);
         
@@ -1364,6 +1385,7 @@ void CRnnLM::testNet()
     int overwrite;
     
     restoreNet();
+    if (independent) netReset();
     
     if (use_lmprob) {
 	lmprob=fopen(lmprob_file, "rb");
@@ -1455,6 +1477,8 @@ void CRnnLM::testNet()
         if (last_word!=-1) neu0[last_word].ac=0;  //delete previous activation
 
         last_word=word;
+        
+        if (independent && (word==0)) netReset();
     }
     fclose(fi);
     if (use_lmprob) fclose(lmprob);
@@ -1490,6 +1514,7 @@ void CRnnLM::testNbest()
     char ut1[MAX_STRING], ut2[MAX_STRING];
 
     restoreNet();
+    if (independent) netReset();
     computeNet(0, 0);
     copyHiddenLayerToInput();
     saveContext();
@@ -1589,6 +1614,8 @@ void CRnnLM::testNbest()
 	}
 
         last_word=word;
+        
+        if (independent && (word==0)) netReset();
     }
     fclose(fi);
     if (use_lmprob) fclose(lmprob);
@@ -1682,6 +1709,8 @@ void CRnnLM::testGen()
         if (last_word!=-1) neu0[last_word].ac=0;  //delete previous activation
 
         last_word=word;
+        
+        if (independent && (word==0)) netReset();
         
         wordcn++;
     }
