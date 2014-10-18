@@ -1107,6 +1107,19 @@ void CRnnLM::clearError(struct neuron *neurons, int first_neuron, int num_neuron
 		neurons[neuron_index].er = 0;
 }
 
+void CRnnLM::normalizeOutputClassActivation()
+{
+	double sum = 0;
+	real max = -FLT_MAX;
+	for (int layer2_index = vocab_size; layer2_index < layer2_size; layer2_index++)
+		if (neu2[layer2_index].ac > max) max = neu2[layer2_index].ac; //this prevents the need to check for overflow
+	for (int layer2_index = vocab_size; layer2_index < layer2_size; layer2_index++)
+		sum += fasterexp(neu2[layer2_index].ac - max);
+
+	for (int layer2_index = vocab_size; layer2_index < layer2_size; layer2_index++)
+		neu2[layer2_index].ac = fasterexp(neu2[layer2_index].ac - max) / sum; 
+}
+
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
@@ -1138,10 +1151,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	clearActivation(neu2, vocab_size, layer2_size);
     
 	if (layerc_size>0) {
+		// Propagate activation of compression layer into output layer
 		matrixXvector(neu2, neuc, sync, layerc_size, vocab_size, layer2_size, 0, layerc_size, 0);
 	}
 	else
 	{
+		// Propagate activation of layer 1 into output layer
 		matrixXvector(neu2, neu1, syn1, layer1_size, vocab_size, layer2_size, 0, layer1_size, 0);
 	}
 
@@ -1171,14 +1186,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	//activation 2   --softmax on classes
 	// 20130425 - this is now a 'safe' softmax
 
-	sum=0;
-	real maxAc=-FLT_MAX;
-	for (a=vocab_size; a<layer2_size; a++)
-		if (neu2[a].ac>maxAc) maxAc=neu2[a].ac; //this prevents the need to check for overflow
-	for (a=vocab_size; a<layer2_size; a++)
-		sum+=fasterexp(neu2[a].ac-maxAc);
-	for (a=vocab_size; a<layer2_size; a++)
-		neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; 
+	normalizeOutputClassActivation();
  
 	if (gen>0) return;	//if we generate words, we don't know what current word is -> only classes are estimated and word is selected in testGen()
 
@@ -1226,7 +1234,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	// 130425 - this is now a 'safe' softmax
 	sum=0;
 	if (word!=-1) { 
-		maxAc=-FLT_MAX;
+		real maxAc=-FLT_MAX;
 		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
 			a=class_words[vocab[word].class_index][c];
 			if (neu2[a].ac>maxAc) maxAc=neu2[a].ac;

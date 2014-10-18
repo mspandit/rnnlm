@@ -332,6 +332,7 @@ public:
     void netFlush();
     void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
     
+	void normalizeOutputClassActivation();
 	void randomizeWeights(struct synapse *, int, int);
 	void sigmoidActivation(struct neuron *, int);
 	void clearActivation(struct neuron *, int, int);
