@@ -325,14 +325,16 @@ public:
     void restoreContext();
     void saveContext2();
     void restoreContext2();
-    void initNet();
+    void initialize();
     void saveNet();
     void goToDelimiter(int delim, FILE *fi);
     void restoreNet();
     void netFlush();
     void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
     
-    void computeNet(int last_word, int word);
+	// void sigmoidActivation(struct neuron *neurons, int num_neurons);
+	void clearActivation(struct neuron *neurons, int num_neurons);
+    void computeProbDist(int last_word, int word);
     void learnNet(int last_word, int word);
     void copyHiddenLayerToInput();
     void trainNet();

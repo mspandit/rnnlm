@@ -329,7 +329,7 @@ void CRnnLM::restoreContext2()
 	for (a=0; a<layer1_size; a++) neu1[a].ac=neu1b2[a].ac;
 }
 
-void CRnnLM::initNet()
+void CRnnLM::initialize()
 {
 	int a, b, cl;
 
@@ -803,7 +803,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
 		//printf("%d  %d  %s  %d\n", b, vocab[a].cn, vocab[a].word, vocab[a].class_index);
 	}
 	//
-	if (neu0==NULL) initNet();		//memory allocation here
+	if (neu0==NULL) initialize();		//memory allocation here
 	//
     
     
@@ -974,7 +974,17 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 	for (a=0; a<MAX_NGRAM_ORDER; a++) history[a]=0;
 }
 
-void CRnnLM::matrixXvector(struct neuron *dest, struct neuron *srcvec, struct synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type)
+void CRnnLM::matrixXvector(
+	struct neuron *dest, 
+	struct neuron *srcvec, 
+	struct synapse *srcmatrix, 
+	int matrix_width, 
+	int from, 
+	int to, 
+	int from2, 
+	int to2, 
+	int type
+)
 {
 	int a, b;
 	real val1, val2, val3, val4;
@@ -1086,7 +1096,12 @@ void CRnnLM::matrixXvector(struct neuron *dest, struct neuron *srcvec, struct sy
 	}*/
 }
 
-void CRnnLM::computeNet(int last_word, int word)
+void CRnnLM::clearActivation(struct neuron *neurons, int num_neurons)
+{
+	for (int neuron_index = 0; neuron_index < num_neurons; neuron_index++) neurons[neuron_index].ac=0;
+}
+
+void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
 	real val;
@@ -1095,15 +1110,16 @@ void CRnnLM::computeNet(int last_word, int word)
 	if (last_word!=-1) neu0[last_word].ac=1;
 
 	//propagate 0->1
-	for (a=0; a<layer1_size; a++) neu1[a].ac=0;
-	for (a=0; a<layerc_size; a++) neuc[a].ac=0;
+	clearActivation(neu1, layer1_size);
+	clearActivation(neuc, layerc_size);
     
+	// Propagate activation of prior hidden layer into current hidden layer
 	matrixXvector(neu1, neu0, syn0, layer0_size, 0, layer1_size, layer0_size-layer1_size, layer0_size, 0);
 
-	for (b=0; b<layer1_size; b++) {
-		a=last_word;
-		if (a!=-1) neu1[b].ac += neu0[a].ac * syn0[a+b*layer0_size].weight;
-	}
+	// Propagate activation of last word into new hidden layer
+	if (last_word != -1)
+		for (int layer1_index = 0; layer1_index < layer1_size; layer1_index++)
+			neu1[layer1_index].ac += neu0[last_word].ac * syn0[last_word + layer1_index * layer0_size].weight;
 
 	//activate 1      --sigmoid
 	for (a=0; a<layer1_size; a++) {
@@ -1501,7 +1517,7 @@ void CRnnLM::trainNet()
 		restoreNet();
 	} else {
 		learnVocabFromTrainFile();
-		initNet();
+		initialize();
 		iter=0;
 	}
 
@@ -1546,7 +1562,7 @@ void CRnnLM::trainNet()
 			}
         
 			word=readWordIndex(fi);     //read next word
-			computeNet(last_word, word);      //compute probability distribution
+			computeProbDist(last_word, word);      //compute probability distribution
 			if (feof(fi)) break;        //end of file: test on validation data, iterate till convergence
 
 			if (word!=-1) logp+=log10(neu2[vocab[word].class_index+vocab_size].ac * neu2[word].ac);
@@ -1615,7 +1631,7 @@ void CRnnLM::trainNet()
 		wordcn=0;
 		while (1) {
 			word=readWordIndex(fi);     //read next word
-			computeNet(last_word, word);      //compute probability distribution
+			computeProbDist(last_word, word);      //compute probability distribution
 			if (feof(fi)) break;        //end of file: report LOGP, PPL
             
 			if (word!=-1) {
@@ -1721,7 +1737,7 @@ void CRnnLM::testNet()
 	while (1) {
         
 		word=readWordIndex(fi);		//read next word
-		computeNet(last_word, word);		//compute probability distribution
+		computeProbDist(last_word, word);		//compute probability distribution
 		if (feof(fi)) break;		//end of file: report LOGP, PPL
         
 		if (use_lmprob) {
@@ -1812,7 +1828,7 @@ void CRnnLM::testNbest()
 	char ut1[MAX_STRING], ut2[MAX_STRING];
 
 	restoreNet();
-	computeNet(0, 0);
+	computeProbDist(0, 0);
 	copyHiddenLayerToInput();
 	saveContext();
 	saveContext2();
@@ -1860,7 +1876,7 @@ void CRnnLM::testNbest()
     
 	
 		word=readWordIndex(fi);     //read next word
-		if (lambda>0) computeNet(last_word, word);      //compute probability distribution
+		if (lambda>0) computeProbDist(last_word, word);      //compute probability distribution
 		if (feof(fi)) break;        //end of file: report LOGP, PPL
         
         
@@ -1951,7 +1967,7 @@ void CRnnLM::testGen()
 	wordcn=0;
 	copyHiddenLayerToInput();
 	while (wordcn<gen) {
-		computeNet(last_word, 0);		//compute probability distribution
+		computeProbDist(last_word, 0);		//compute probability distribution
         
 		f=random(0, 1);
 		g=0;
