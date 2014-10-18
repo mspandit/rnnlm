@@ -341,7 +341,7 @@ void CRnnLM::initialize()
 	neuc = (struct neuron *)calloc(layerc_size, sizeof(struct neuron));
 	neu2 = (struct neuron *)calloc(layer2_size, sizeof(struct neuron));
 
-	syn0=(struct synapse *)calloc(layer0_size * layer1_size, sizeof(struct synapse));
+	syn0 = (struct synapse *)calloc(layer0_size * layer1_size, sizeof(struct synapse));
 	if (layerc_size==0)
 		syn1=(struct synapse *)calloc(layer1_size * layer2_size, sizeof(struct synapse));
 	else {
@@ -359,7 +359,7 @@ void CRnnLM::initialize()
 		exit(1);
 	}
     
-	syn_d=(direct_t *)calloc((long long)direct_size, sizeof(direct_t));
+	syn_d = (direct_t *)calloc((long long)direct_size, sizeof(direct_t));
 
 	if (syn_d==NULL) {
 		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct_size * (long long)sizeof(direct_t));
@@ -373,7 +373,6 @@ void CRnnLM::initialize()
 	neu2b=(struct neuron *)calloc(layer2_size, sizeof(struct neuron));
 
 	syn0b=(struct synapse *)calloc(layer0_size*layer1_size, sizeof(struct synapse));
-	//syn1b=(struct synapse *)calloc(layer1_size*layer2_size, sizeof(struct synapse));
 	if (layerc_size==0)
 		syn1b=(struct synapse *)calloc(layer1_size*layer2_size, sizeof(struct synapse));
 	else {
@@ -1273,6 +1272,14 @@ void CRnnLM::computeErrorVectors(int word)
 	neu2[vocab_size + vocab[word].class_index].er = (1 - neu2[vocab_size + vocab[word].class_index].ac);	//class part
 }
 
+void CRnnLM::adjustWeights(int counter, int b, int t, real beta2)
+{
+	if ((counter % 10) == 0)	//regularization is done every 10 steps
+		for (int a = 0; a < layer1_size; a++) syn1[a + t].weight += alpha * neu2[b].er * neu1[a].ac - syn1[a + t].weight * beta2;
+	else
+		for (int a = 0; a < layer1_size; a++) syn1[a + t].weight += alpha * neu2[b].er * neu1[a].ac;
+}
+
 void CRnnLM::learn(int last_word, int word)
 {
 	int a, b, c, t, step;
@@ -1336,8 +1343,6 @@ void CRnnLM::learn(int last_word, int word)
 			} else break;
 		}
 	}
-	//
-    
     
 	if (layerc_size>0) {
 		matrixXvector(neuc, neu2, sync, layerc_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_word_count[vocab[word].class_index], 0, layerc_size, 1);
@@ -1345,29 +1350,19 @@ void CRnnLM::learn(int last_word, int word)
 		t=class_words[vocab[word].class_index][0]*layerc_size;
 		for (c=0; c<class_word_count[vocab[word].class_index]; c++) {
 			b=class_words[vocab[word].class_index][c];
-			if ((counter%10)==0)	//regularization is done every 10. step
-				for (a=0; a<layerc_size; a++) sync[a+t].weight+=alpha*neu2[b].er*neuc[a].ac - sync[a+t].weight*beta2;
-			else
-				for (a=0; a<layerc_size; a++) sync[a+t].weight+=alpha*neu2[b].er*neuc[a].ac;
+			adjustWeights(counter, b, t, beta2);
 			t+=layerc_size;
 		}
-		//
+
 		matrixXvector(neuc, neu2, sync, layerc_size, vocab_size, layer2_size, 0, layerc_size, 1);		//propagates errors 2->c for classes
 	
-		c=vocab_size*layerc_size;
+		t=vocab_size*layerc_size;
 		for (b=vocab_size; b<layer2_size; b++) {
-			if ((counter%10)==0) {	//regularization is done every 10. step
-				for (a=0; a<layerc_size; a++) sync[a+c].weight+=alpha*neu2[b].er*neuc[a].ac - sync[a+c].weight*beta2;	//weight c->2 update
-			}
-			else {
-				for (a=0; a<layerc_size; a++) sync[a+c].weight+=alpha*neu2[b].er*neuc[a].ac;	//weight c->2 update
-			}
-			c+=layerc_size;
+			adjustWeights(counter, b, t, beta2);
+			t += layerc_size;
 		}
 	
 		for (a=0; a<layerc_size; a++) neuc[a].er=neuc[a].er*neuc[a].ac*(1-neuc[a].ac);    //error derivation at compression layer
-
-		////
 	
 		matrixXvector(neu1, neuc, syn1, layer1_size, 0, layerc_size, 0, layer1_size, 1);		//propagates errors c->1
 	
@@ -1377,38 +1372,29 @@ void CRnnLM::learn(int last_word, int word)
 	}
 	else
 	{
+		// propagate error from output layer to layer 1 for vocabulary
 		matrixXvector(neu1, neu2, syn1, layer1_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_word_count[vocab[word].class_index], 0, layer1_size, 1);
     	
-		t=class_words[vocab[word].class_index][0]*layer1_size;
-		for (c=0; c<class_word_count[vocab[word].class_index]; c++) {
-			b=class_words[vocab[word].class_index][c];
-			if ((counter%10)==0)	//regularization is done every 10. step
-				for (a=0; a<layer1_size; a++) syn1[a+t].weight+=alpha*neu2[b].er*neu1[a].ac - syn1[a+t].weight*beta2;
-			else
-				for (a=0; a<layer1_size; a++) syn1[a+t].weight+=alpha*neu2[b].er*neu1[a].ac;
-			t+=layer1_size;
+		t = class_words[vocab[word].class_index][0] * layer1_size;
+		for (c = 0; c < class_word_count[vocab[word].class_index]; c++) {
+			b = class_words[vocab[word].class_index][c];
+			adjustWeights(counter, b, t, beta2);
+			t += layer1_size;
 		}
-		//
+
+		// propagate error from output layer to layer 1 for classes
 		matrixXvector(neu1, neu2, syn1, layer1_size, vocab_size, layer2_size, 0, layer1_size, 1);		//propagates errors 2->1 for classes
 	
-		c=vocab_size*layer1_size;
-		for (b=vocab_size; b<layer2_size; b++) {
-			if ((counter%10)==0) {	//regularization is done every 10. step
-				for (a=0; a<layer1_size; a++) syn1[a+c].weight+=alpha*neu2[b].er*neu1[a].ac - syn1[a+c].weight*beta2;	//weight 1->2 update
-			}
-			else {
-				for (a=0; a<layer1_size; a++) syn1[a+c].weight+=alpha*neu2[b].er*neu1[a].ac;	//weight 1->2 update
-			}
-			c+=layer1_size;
+		t = vocab_size * layer1_size;
+		for (b = vocab_size; b < layer2_size; b++) {
+			adjustWeights(counter, b, t, beta2);
+			t += layer1_size;
 		}
 	}
-    
-	//
-    
-	///////////////
 
-	if (bptt<=1) {		//bptt==1 -> normal BP
-		for (a=0; a<layer1_size; a++) neu1[a].er=neu1[a].er*neu1[a].ac*(1-neu1[a].ac);    //error derivation at layer 1
+	if (bptt <= 1) {		//bptt==1 -> normal BP
+		for (a = 0; a < layer1_size; a++) 
+			neu1[a].er = neu1[a].er * neu1[a].ac * (1 - neu1[a].ac);    //error derivation at layer 1
 
 		//weight update 1->0
 		a=last_word;

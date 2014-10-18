@@ -332,6 +332,7 @@ public:
     void netFlush();
     void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
 
+	void adjustWeights(int, int, int, real);
 	void computeErrorVectors(int);
 	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
