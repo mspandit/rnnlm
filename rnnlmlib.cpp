@@ -1096,6 +1096,15 @@ void CRnnLM::matrixXvector(
 	}*/
 }
 
+void CRnnLM::sigmoidActivation(struct neuron *neurons, int num_neurons)
+{
+	for (int layer_index = 0; layer_index < num_neurons; layer_index++) {
+		if (neurons[layer_index].ac > 50) neurons[layer_index].ac = 50;  //for numerical stability
+		if (neurons[layer_index].ac < -50) neurons[layer_index].ac = -50;  //for numerical stability
+		neurons[layer_index].ac = 1 / (1 + fasterexp(-neurons[layer_index].ac));
+	}	
+}
+
 void CRnnLM::clearActivation(struct neuron *neurons, int num_neurons)
 {
 	for (int neuron_index = 0; neuron_index < num_neurons; neuron_index++) neurons[neuron_index].ac=0;
@@ -1104,7 +1113,6 @@ void CRnnLM::clearActivation(struct neuron *neurons, int num_neurons)
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
-	real val;
 	double sum;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
     
 	if (last_word!=-1) neu0[last_word].ac=1;
@@ -1122,22 +1130,11 @@ void CRnnLM::computeProbDist(int last_word, int word)
 			neu1[layer1_index].ac += neu0[last_word].ac * syn0[last_word + layer1_index * layer0_size].weight;
 
 	//activate 1      --sigmoid
-	for (a=0; a<layer1_size; a++) {
-		if (neu1[a].ac>50) neu1[a].ac=50;  //for numerical stability
-		if (neu1[a].ac<-50) neu1[a].ac=-50;  //for numerical stability
-		val=-neu1[a].ac;
-		neu1[a].ac=1/(1+fasterexp(val));
-	}
-    
+    sigmoidActivation(neu1, layer1_size);
 	if (layerc_size>0) {
 		matrixXvector(neuc, neu1, syn1, layer1_size, 0, layerc_size, 0, layer1_size, 0);
 		//activate compression      --sigmoid
-		for (a=0; a<layerc_size; a++) {
-			if (neuc[a].ac>50) neuc[a].ac=50;  //for numerical stability
-			if (neuc[a].ac<-50) neuc[a].ac=-50;  //for numerical stability
-			val=-neuc[a].ac;
-			neuc[a].ac=1/(1+fasterexp(val));
-		}
+		sigmoidActivation(neuc, layerc_size);
 	}
         
 	//1->2 class

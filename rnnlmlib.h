@@ -332,7 +332,7 @@ public:
     void netFlush();
     void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
     
-	// void sigmoidActivation(struct neuron *neurons, int num_neurons);
+	void sigmoidActivation(struct neuron *, int);
 	void clearActivation(struct neuron *neurons, int num_neurons);
     void computeProbDist(int last_word, int word);
     void learnNet(int last_word, int word);
