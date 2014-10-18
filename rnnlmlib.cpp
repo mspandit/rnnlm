@@ -468,20 +468,20 @@ void CRnnLM::initialize()
 	//allocate auxiliary class variables (for faster search when normalizing probability at output layer)
     
 	class_words=(int **)calloc(class_size, sizeof(int *));
-	class_cn=(int *)calloc(class_size, sizeof(int));
+	class_word_count=(int *)calloc(class_size, sizeof(int));
 	class_max_cn=(int *)calloc(class_size, sizeof(int));
     
 	for (i=0; i<class_size; i++) {
-		class_cn[i]=0;
+		class_word_count[i]=0;
 		class_max_cn[i]=10;
 		class_words[i]=(int *)calloc(class_max_cn[i], sizeof(int));
 	}
     
 	for (i=0; i<vocab_size; i++) {
 		cl=vocab[i].class_index;
-		class_words[cl][class_cn[cl]]=i;
-		class_cn[cl]++;
-		if (class_cn[cl]+2>=class_max_cn[cl]) {
+		class_words[cl][class_word_count[cl]]=i;
+		class_word_count[cl]++;
+		if (class_word_count[cl]+2>=class_max_cn[cl]) {
 			class_max_cn[cl]+=10;
 			class_words[cl]=(int *)realloc(class_words[cl], class_max_cn[cl]*sizeof(int));
 		}
@@ -1109,7 +1109,7 @@ void CRnnLM::clearError(struct neuron *neurons, int first_neuron, int num_neuron
 
 void CRnnLM::normalizeOutputClassActivation()
 {
-	double sum = 0;
+	double sum = 0.0;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
 	real max = -FLT_MAX;
 	for (int layer2_index = vocab_size; layer2_index < layer2_size; layer2_index++)
 		if (neu2[layer2_index].ac > max) max = neu2[layer2_index].ac; //this prevents the need to check for overflow
@@ -1120,10 +1120,34 @@ void CRnnLM::normalizeOutputClassActivation()
 		neu2[layer2_index].ac = fasterexp(neu2[layer2_index].ac - max) / sum; 
 }
 
+void CRnnLM::normalizeOutputWordActivation(int word)
+{
+	double sum = 0.0;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
+	int a;
+	real maxAc=-FLT_MAX;
+	for (int c=0; c<class_word_count[vocab[word].class_index]; c++) {
+		a=class_words[vocab[word].class_index][c];
+		if (neu2[a].ac>maxAc) maxAc=neu2[a].ac;
+	}
+	for (int c=0; c<class_word_count[vocab[word].class_index]; c++) {
+		a=class_words[vocab[word].class_index][c];
+		sum+=fasterexp(neu2[a].ac-maxAc);
+	}
+	for (int c = 0; c < class_word_count[vocab[word].class_index]; c++) {
+		a=class_words[vocab[word].class_index][c];
+		neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; //this prevents the need to check for overflow
+	}
+}
+
+void CRnnLM::clearClassActivation(int word)
+{
+	for (int c = 0; c < class_word_count[vocab[word].class_index]; c++)
+		neu2[class_words[vocab[word].class_index][c]].ac = 0;
+}
+
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
-	double sum;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
     
 	if (last_word!=-1) neu0[last_word].ac=1;
 
@@ -1194,13 +1218,15 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	//1->2 word
     
 	if (word!=-1) {
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) neu2[class_words[vocab[word].class_index][c]].ac=0;
+		clearClassActivation(word);
 		if (layerc_size>0) {
-			matrixXvector(neu2, neuc, sync, layerc_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_cn[vocab[word].class_index], 0, layerc_size, 0);
+			// Propagate activation of compression layer into output layer
+			matrixXvector(neu2, neuc, sync, layerc_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_word_count[vocab[word].class_index], 0, layerc_size, 0);
 		}
 		else
 		{
-			matrixXvector(neu2, neu1, syn1, layer1_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_cn[vocab[word].class_index], 0, layer1_size, 0);
+			// Propagate activation of layer1 into output layer
+			matrixXvector(neu2, neu1, syn1, layer1_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_word_count[vocab[word].class_index], 0, layer1_size, 0);
 		}
 	}
     
@@ -1219,7 +1245,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 			hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
 		}
 	
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+		for (c=0; c<class_word_count[vocab[word].class_index]; c++) {
 			a=class_words[vocab[word].class_index][c];
 	    
 			for (b=0; b<direct_order; b++) if (hash[b]) {
@@ -1230,55 +1256,41 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		}
 	}
 
-	//activation 2   --softmax on words
-	// 130425 - this is now a 'safe' softmax
-	sum=0;
-	if (word!=-1) { 
-		real maxAc=-FLT_MAX;
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
-			a=class_words[vocab[word].class_index][c];
-			if (neu2[a].ac>maxAc) maxAc=neu2[a].ac;
-		}
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
-			a=class_words[vocab[word].class_index][c];
-			sum+=fasterexp(neu2[a].ac-maxAc);
-		}
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
-			a=class_words[vocab[word].class_index][c];
-			neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; //this prevents the need to check for overflow
-		}
-	}
+	if (word!=-1)
+		normalizeOutputWordActivation(word);
 }
 
-void CRnnLM::learnNet(int last_word, int word)
+void CRnnLM::computeErrorVectors(int word)
+{
+	for (int c = 0; c < class_word_count[vocab[word].class_index]; c++) {
+		neu2[class_words[vocab[word].class_index][c]].er = (0 - neu2[class_words[vocab[word].class_index][c]].ac);
+	}
+	neu2[word].er=(1-neu2[word].ac);	//word part
+
+	for (int a = vocab_size; a < layer2_size; a++) {
+		neu2[a].er = (0 - neu2[a].ac);
+	}
+	neu2[vocab_size + vocab[word].class_index].er = (1 - neu2[vocab_size + vocab[word].class_index].ac);	//class part
+}
+
+void CRnnLM::learn(int last_word, int word)
 {
 	int a, b, c, t, step;
 	real beta2, beta3;
 
-	beta2=beta*alpha;
-	beta3=beta2*1;	//beta3 can be possibly larger than beta2, as that is useful on small datasets (if the final model is to be interpolated wich backoff model) - todo in the future
+	beta2 = beta * alpha;
+	beta3 = beta2 * 1;	//beta3 can be possibly larger than beta2, as that is useful on small datasets (if the final model is to be interpolated wich backoff model) - todo in the future
 
-	if (word==-1) return;
+	if (word == -1) return;
 
-	//compute error vectors
-	for (c=0; c<class_cn[vocab[word].class_index]; c++) {
-		a=class_words[vocab[word].class_index][c];
-		neu2[a].er=(0-neu2[a].ac);
-	}
-	neu2[word].er=(1-neu2[word].ac);	//word part
+	computeErrorVectors(word);
 
 	//flush error
-	for (a=0; a<layer1_size; a++) neu1[a].er=0;
-	for (a=0; a<layerc_size; a++) neuc[a].er=0;
-
-	for (a=vocab_size; a<layer2_size; a++) {
-		neu2[a].er=(0-neu2[a].ac);
-	}
-	neu2[vocab[word].class_index+vocab_size].er=(1-neu2[vocab[word].class_index+vocab_size].ac);	//class part
+	clearError(neu1, 0, layer1_size);
+	clearError(neuc, 0, layerc_size);
     
-	//
-	if (direct_size>0) {	//learn direct connections between words
-		if (word!=-1) {
+	if (direct_size > 0) {	//learn direct connections between words
+		if (word != -1) {
 			unsigned long long hash[MAX_NGRAM_ORDER];
 	    
 			for (a=0; a<direct_order; a++) hash[a]=0;
@@ -1292,7 +1304,7 @@ void CRnnLM::learnNet(int last_word, int word)
 				hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
 			}
 	
-			for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+			for (c=0; c<class_word_count[vocab[word].class_index]; c++) {
 				a=class_words[vocab[word].class_index][c];
 	    
 				for (b=0; b<direct_order; b++) if (hash[b]) {
@@ -1302,10 +1314,8 @@ void CRnnLM::learnNet(int last_word, int word)
 				} else break;
 			}
 		}
-	}
-	//
-	//learn direct connections to classes
-	if (direct_size>0) {	//learn direct connections between words and classes
+		//learn direct connections to classes
+		//learn direct connections between words and classes
 		unsigned long long hash[MAX_NGRAM_ORDER];
 	
 		for (a=0; a<direct_order; a++) hash[a]=0;
@@ -1330,10 +1340,10 @@ void CRnnLM::learnNet(int last_word, int word)
     
     
 	if (layerc_size>0) {
-		matrixXvector(neuc, neu2, sync, layerc_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_cn[vocab[word].class_index], 0, layerc_size, 1);
+		matrixXvector(neuc, neu2, sync, layerc_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_word_count[vocab[word].class_index], 0, layerc_size, 1);
 	
 		t=class_words[vocab[word].class_index][0]*layerc_size;
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+		for (c=0; c<class_word_count[vocab[word].class_index]; c++) {
 			b=class_words[vocab[word].class_index][c];
 			if ((counter%10)==0)	//regularization is done every 10. step
 				for (a=0; a<layerc_size; a++) sync[a+t].weight+=alpha*neu2[b].er*neuc[a].ac - sync[a+t].weight*beta2;
@@ -1367,10 +1377,10 @@ void CRnnLM::learnNet(int last_word, int word)
 	}
 	else
 	{
-		matrixXvector(neu1, neu2, syn1, layer1_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_cn[vocab[word].class_index], 0, layer1_size, 1);
+		matrixXvector(neu1, neu2, syn1, layer1_size, class_words[vocab[word].class_index][0], class_words[vocab[word].class_index][0]+class_word_count[vocab[word].class_index], 0, layer1_size, 1);
     	
 		t=class_words[vocab[word].class_index][0]*layer1_size;
-		for (c=0; c<class_cn[vocab[word].class_index]; c++) {
+		for (c=0; c<class_word_count[vocab[word].class_index]; c++) {
 			b=class_words[vocab[word].class_index][c];
 			if ((counter%10)==0)	//regularization is done every 10. step
 				for (a=0; a<layer1_size; a++) syn1[a+t].weight+=alpha*neu2[b].er*neu1[a].ac - syn1[a+t].weight*beta2;
@@ -1567,25 +1577,25 @@ void CRnnLM::trainNet()
 			computeProbDist(last_word, word);      //compute probability distribution
 			if (feof(fi)) break;        //end of file: test on validation data, iterate till convergence
 
-			if (word!=-1) logp+=log10(neu2[vocab[word].class_index+vocab_size].ac * neu2[word].ac);
+			if (word!=-1) logp += log10(neu2[vocab_size + vocab[word].class_index].ac * neu2[word].ac);
     	    
-			if ((logp!=logp) || (isinf(logp))) {
+			if ((logp != logp) || (isinf(logp))) {
 				printf("\nNumerical error %d %f %f\n", word, neu2[word].ac, neu2[vocab[word].class_index+vocab_size].ac);
 				exit(1);
 			}
-	    
-			//
+
 			if (bptt>0) {		//shift memory needed for bptt to next time step
-				for (a=bptt+bptt_block-1; a>0; a--) bptt_history[a]=bptt_history[a-1];
-				bptt_history[0]=last_word;
+				for (a = bptt + bptt_block - 1; a > 0; a--) bptt_history[a] = bptt_history[a - 1];
+				bptt_history[0] = last_word;
 		
-				for (a=bptt+bptt_block-1; a>0; a--) for (b=0; b<layer1_size; b++) {
-					bptt_hidden[a*layer1_size+b].ac=bptt_hidden[(a-1)*layer1_size+b].ac;
-					bptt_hidden[a*layer1_size+b].er=bptt_hidden[(a-1)*layer1_size+b].er;
-				}
+				for (a = bptt + bptt_block - 1; a > 0; a--) 
+					for (b = 0; b < layer1_size; b++) {
+						bptt_hidden[a * layer1_size + b].ac = bptt_hidden[(a - 1) * layer1_size + b].ac;
+						bptt_hidden[a * layer1_size + b].er = bptt_hidden[(a - 1) * layer1_size+b].er;
+					}
 			}
-			//
-			learnNet(last_word, word);
+
+			learn(last_word, word);
             
 			copyHiddenLayerToInput();
 
@@ -1646,7 +1656,7 @@ void CRnnLM::trainNet()
 			else
 			fprintf(flog, "-1\t0\t\tOOV\n");*/
 
-			//learnNet(last_word, word);    //*** this will be in implemented for dynamic models
+			//learn(last_word, word);    //*** this will be in implemented for dynamic models
 			copyHiddenLayerToInput();
 
 			if (last_word!=-1) neu0[last_word].ac=0;  //delete previous activation
@@ -1785,7 +1795,7 @@ void CRnnLM::testNet()
 			}
 			//
 			alpha=dynamic;
-			learnNet(last_word, word);    //dynamic update
+			learn(last_word, word);    //dynamic update
 		}
 		copyHiddenLayerToInput();
         
@@ -1920,7 +1930,7 @@ void CRnnLM::testNbest()
 			wordcn++;
 		}
         
-		//learnNet(last_word, word);    //*** this will be in implemented for dynamic models
+		//learn(last_word, word);    //*** this will be in implemented for dynamic models
 		copyHiddenLayerToInput();
 
 		if (last_word!=-1) neu0[last_word].ac=0;  //delete previous activation
@@ -1986,8 +1996,8 @@ void CRnnLM::testGen()
 		//
 		// !!!!!!!!  THIS WILL WORK ONLY IF CLASSES ARE CONTINUALLY DEFINED IN VOCAB !!! (like class 10 = words 11 12 13; not 11 12 16)  !!!!!!!!
 		// forward pass 1->2 for words
-		for (c=0; c<class_cn[cla]; c++) neu2[class_words[cla][c]].ac=0;
-		matrixXvector(neu2, neu1, syn1, layer1_size, class_words[cla][0], class_words[cla][0]+class_cn[cla], 0, layer1_size, 0);
+		for (c=0; c<class_word_count[cla]; c++) neu2[class_words[cla][c]].ac=0;
+		matrixXvector(neu2, neu1, syn1, layer1_size, class_words[cla][0], class_words[cla][0]+class_word_count[cla], 0, layer1_size, 0);
         
 		//apply direct connections to words
 		if (word!=-1) if (direct_size>0) {
@@ -2004,7 +2014,7 @@ void CRnnLM::testGen()
 				hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
 			}
 
-			for (c=0; c<class_cn[cla]; c++) {
+			for (c=0; c<class_word_count[cla]; c++) {
 				a=class_words[cla][c];
 
 				for (b=0; b<direct_order; b++) if (hash[b]) {
@@ -2020,15 +2030,15 @@ void CRnnLM::testGen()
 
 		sum=0;
 		real maxAc=-FLT_MAX;
-		for (c=0; c<class_cn[cla]; c++) {
+		for (c=0; c<class_word_count[cla]; c++) {
 			a=class_words[cla][c];
 			if (neu2[a].ac>maxAc) maxAc=neu2[a].ac;
 		}
-		for (c=0; c<class_cn[cla]; c++) {
+		for (c=0; c<class_word_count[cla]; c++) {
 			a=class_words[cla][c];
 			sum+=fasterexp(neu2[a].ac-maxAc);
 		}
-		for (c=0; c<class_cn[cla]; c++) {
+		for (c=0; c<class_word_count[cla]; c++) {
 			a=class_words[cla][c];
 			neu2[a].ac=fasterexp(neu2[a].ac-maxAc)/sum; //this prevents the need to check for overflow
 		}
@@ -2041,7 +2051,7 @@ void CRnnLM::testGen()
 		g+=neu2[i].ac;
 		i++;
 		}*/
-		for (c=0; c<class_cn[cla]; c++) {
+		for (c=0; c<class_word_count[cla]; c++) {
 			a=class_words[cla][c];
 			g+=neu2[a].ac;
 			if (g>f) break;

@@ -86,7 +86,7 @@ protected:
     
     int class_size;
     int **class_words;
-    int *class_cn;
+    int *class_word_count;
     int *class_max_cn;
     int old_classes;
     
@@ -263,7 +263,7 @@ public:
 	    
 	    for (i=0; i<class_size; i++) free(class_words[i]);
 	    free(class_max_cn);
-	    free(class_cn);
+	    free(class_word_count);
 	    free(class_words);
 	
 	    free(vocab);
@@ -331,14 +331,17 @@ public:
     void restoreNet();
     void netFlush();
     void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
-    
+
+	void computeErrorVectors(int);
+	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
+	void normalizeOutputWordActivation(int);
 	void randomizeWeights(struct synapse *, int, int);
 	void sigmoidActivation(struct neuron *, int);
 	void clearActivation(struct neuron *, int, int);
 	void clearError(struct neuron *, int, int);
     void computeProbDist(int last_word, int word);
-    void learnNet(int last_word, int word);
+    void learn(int last_word, int word);
     void copyHiddenLayerToInput();
     void trainNet();
     void useLMProb(int use) {use_lmprob=use;}
