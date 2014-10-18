@@ -190,14 +190,6 @@ void CRnnLM::learnVocabFromTrainFile()    //assumes that vocabulary is empty
 	}
 
 	sortVocab();
-    
-	//select vocabulary size
-	/*a=0;
-	while (a<vocab_size) {
-	a++;
-	if (vocab[a].cn==0) break;
-	}
-	vocab_size=a;*/
 
 	if (debug_mode>0) {
 		printf("Vocab size: %d\n", vocab_size);
@@ -251,33 +243,23 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
 			syn1b[a+b*layer1_size].weight=syn1[a+b*layer1_size].weight;
 		}
 	}
-    
-	//for (a=0; a<direct_size; a++) syn_db[a].weight=syn_d[a].weight;
 }
 
 void CRnnLM::restoreWeights()      //restores current weights and unit activations from backup copy
 {
 	int a,b;
 
-	for (a=0; a<layer0_size; a++) {
-		neu0[a].ac=neu0b[a].ac;
-		neu0[a].er=neu0b[a].er;
-	}
+	clearActivation(neu0, 0, layer0_size);
+	clearError(neu0, 0, layer0_size);
 
-	for (a=0; a<layer1_size; a++) {
-		neu1[a].ac=neu1b[a].ac;
-		neu1[a].er=neu1b[a].er;
-	}
-    
-	for (a=0; a<layerc_size; a++) {
-		neuc[a].ac=neucb[a].ac;
-		neuc[a].er=neucb[a].er;
-	}
-    
-	for (a=0; a<layer2_size; a++) {
-		neu2[a].ac=neu2b[a].ac;
-		neu2[a].er=neu2b[a].er;
-	}
+	clearActivation(neu1, 0, layer1_size);
+	clearError(neu1, 0, layer1_size);
+
+	clearActivation(neuc, 0, layerc_size);
+	clearError(neuc, 0, layerc_size);
+
+	clearActivation(neu2, 0, layer2_size);
+	clearError(neu2, 0, layer2_size);
 
 	for (b=0; b<layer1_size; b++) for (a=0; a<layer0_size; a++) {
 		syn0[a+b*layer0_size].weight=syn0b[a+b*layer0_size].weight;
@@ -297,8 +279,6 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 			syn1[a+b*layer1_size].weight=syn1b[a+b*layer1_size].weight;
 		}
 	}
-    
-	//for (a=0; a<direct_size; a++) syn_d[a].weight=syn_db[a].weight;
 }
 
 void CRnnLM::saveContext()		//useful for n-best list processing
@@ -634,15 +614,9 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		for (aa=0; aa<direct_size; aa++) {
 			fl=syn_d[aa];
 			fwrite(&fl, sizeof(fl), 1, fo);
-    	    
-			/*fl=syn_d[aa]*4*256;			//saving direct connections this way will save 50% disk space; several times more compression is doable by clustering
-			if (fl>(1<<15)-1) fl=(1<<15)-1;
-			if (fl<-(1<<15)) fl=-(1<<15);
-			si=(signed short int)fl;
-			fwrite(&si, 2, 1, fo);*/
 		}
 	}
-	////////    
+
 	fclose(fo);
     
 	rename(str, rnnlm_file);
