@@ -16,6 +16,7 @@
 #include <iostream>
 #include <limits.h>
 #include "rnnlmlib.h"
+#include "options.h"
 
 using namespace std;
 
@@ -48,33 +49,6 @@ int searchForValidationFile(int argc, char **argv, int debug_mode, char *valid_f
 		}
 
 		valid_data_set = 1;
-	}
-	return 1;
-}
-
-int searchForTrainFile(int argc, char **argv, int debug_mode, char *train_file, int &train_mode, int &train_file_set)
-{
-	//search for train file
-	int i = argPos((char *)"-train", argc, argv);
-	if (i > 0) {
-		if (i + 1 == argc) {
-			printf("ERROR: training data file not specified!\n");
-			return 0;
-		}
-
-		strcpy(train_file, argv[i + 1]);
-
-		if (debug_mode > 0)
-			printf("train file: %s\n", train_file);
-
-		if (NULL == fopen(train_file, "rb")) {
-			printf("ERROR: training data file not found!\n");
-			return 0;
-		}
-
-		train_mode = 1;
-        
-		train_file_set = 1;
 	}
 	return 1;
 }
@@ -341,12 +315,11 @@ int main(int argc, char **argv)
     
 	int fileformat=TEXT;
     
-	int train_mode=0;
 	int valid_data_set=0;
 	int test_data_set=0;
 	int rnnlm_file_set=0;
     
-	int alpha_set=0, train_file_set=0;
+	int alpha_set=0;
     
 	int class_size=100;
 	int old_classes=0;
@@ -371,7 +344,6 @@ int main(int argc, char **argv)
 	int maxIter=INT_MAX;
 	int anti_k=0;
     
-	char train_file[MAX_STRING];
 	char valid_file[MAX_STRING];
 	char test_file[MAX_STRING];
 	char rnnlm_file[MAX_STRING];
@@ -383,11 +355,10 @@ int main(int argc, char **argv)
 		printHelp();
 		return 0;	//***
 	}
+	
+	Options *options = new Options(argc, argv);
 
 	if (0 == setDebugMode(argc, argv, debug_mode))
-		return 0;
-
-	if (0 == searchForTrainFile(argc, argv, debug_mode, train_file, train_mode, train_file_set))
 		return 0;
   
 	setOneIter(argc, argv, debug_mode, one_iter);
@@ -398,7 +369,7 @@ int main(int argc, char **argv)
 	if (0 == searchForValidationFile(argc, argv, debug_mode, valid_file, valid_data_set))
 		return 0;
     
-	if (train_mode && !valid_data_set) {
+	if (options->getTrainMode(debug_mode) && !valid_data_set) {
 		if (one_iter==0) {
 			printf("ERROR: validation data file must be specified for training!\n");
 			return 0;
@@ -656,7 +627,7 @@ int main(int argc, char **argv)
 
 		rnnlm_file_set=1;
 	}
-	if (train_mode && !rnnlm_file_set) {
+	if (options->getTrainMode(debug_mode) && !rnnlm_file_set) {
 		printf("ERROR: rnnlm file must be specified for training!\n");
 		return 0;
 	}
@@ -664,7 +635,7 @@ int main(int argc, char **argv)
 		printf("ERROR: rnnlm file must be specified for testing!\n");
 		return 0;
 	}
-	if (!test_data_set && !train_mode && gen==0) {
+	if (!test_data_set && !options->getTrainMode(debug_mode) && gen==0) {
 		printf("ERROR: training or testing must be specified!\n");
 		return 0;
 	}
@@ -676,10 +647,10 @@ int main(int argc, char **argv)
     
 	srand(1);
 
-	if (train_mode) {
+	if (options->getTrainMode(debug_mode)) {
 		CRnnLM model1;
 
-		model1.setTrainFile(train_file);
+		model1.setTrainFile(options->getTrainFile(debug_mode));
 		model1.setRnnLMFile(rnnlm_file);
 		model1.setFileType(fileformat);
     	
@@ -705,7 +676,7 @@ int main(int argc, char **argv)
 		model1.setIndependent(independent);
     	
 		model1.alpha_set=alpha_set;
-		model1.train_file_set=train_file_set;
+		model1.train_file_set = options->getTrainFileSet(debug_mode);
 		model1.trainNet();
 	}
     
