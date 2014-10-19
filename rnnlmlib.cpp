@@ -994,44 +994,21 @@ void CRnnLM::matrixXvector(
 )
 {
 	int a, b;
-	real val1, val2, val3, val4;
-	real val5, val6, val7, val8;
+	real val[8];
     
 	if (type==0) {		//ac mod
-		for (b=0; b<(to-from)/8; b++) {
-			val1=0;
-			val2=0;
-			val3=0;
-			val4=0;
+		for (b=0; b<(to-from)/(sizeof(val) / sizeof(real)); b++) {
+			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+				val[c] = 0;
 	    
-			val5=0;
-			val6=0;
-			val7=0;
-			val8=0;
-	    
-			for (a=from2; a<to2; a++) {
-				val1 += srcvec[a].ac * srcmatrix[a+(b*8+from+0)*matrix_width].weight;
-				val2 += srcvec[a].ac * srcmatrix[a+(b*8+from+1)*matrix_width].weight;
-				val3 += srcvec[a].ac * srcmatrix[a+(b*8+from+2)*matrix_width].weight;
-				val4 += srcvec[a].ac * srcmatrix[a+(b*8+from+3)*matrix_width].weight;
-    		
-				val5 += srcvec[a].ac * srcmatrix[a+(b*8+from+4)*matrix_width].weight;
-				val6 += srcvec[a].ac * srcmatrix[a+(b*8+from+5)*matrix_width].weight;
-				val7 += srcvec[a].ac * srcmatrix[a+(b*8+from+6)*matrix_width].weight;
-				val8 += srcvec[a].ac * srcmatrix[a+(b*8+from+7)*matrix_width].weight;
-			}
-			dest[b*8+from+0].ac += val1;
-			dest[b*8+from+1].ac += val2;
-			dest[b*8+from+2].ac += val3;
-			dest[b*8+from+3].ac += val4;
-    	    
-			dest[b*8+from+4].ac += val5;
-			dest[b*8+from+5].ac += val6;
-			dest[b*8+from+6].ac += val7;
-			dest[b*8+from+7].ac += val8;
+			for (a=from2; a<to2; a++)
+				for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+					val[c] += srcvec[a].ac * srcmatrix[a+(b*(sizeof(val) / sizeof(real))+from+c)*matrix_width].weight;
+			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+				dest[b*8+from+c].ac += val[c];
 		}
     
-		for (b=b*8; b<to-from; b++) {
+		for (b=b*(sizeof(val) / sizeof(real)); b<to-from; b++) {
 			for (a=from2; a<to2; a++) {
 				dest[b+from].ac += srcvec[a].ac * srcmatrix[a+(b+from)*matrix_width].weight;
 			}
@@ -1039,39 +1016,17 @@ void CRnnLM::matrixXvector(
 	}
 	else {		//er mod
 		for (a=0; a<(to2-from2)/8; a++) {
-			val1=0;
-			val2=0;
-			val3=0;
-			val4=0;
+			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+				val[c] = 0;
 	    
-			val5=0;
-			val6=0;
-			val7=0;
-			val8=0;
-	    
-			for (b=from; b<to; b++) {
-				val1 += srcvec[b].er * srcmatrix[a*8+from2+0+b*matrix_width].weight;
-				val2 += srcvec[b].er * srcmatrix[a*8+from2+1+b*matrix_width].weight;
-				val3 += srcvec[b].er * srcmatrix[a*8+from2+2+b*matrix_width].weight;
-				val4 += srcvec[b].er * srcmatrix[a*8+from2+3+b*matrix_width].weight;
-    	        
-				val5 += srcvec[b].er * srcmatrix[a*8+from2+4+b*matrix_width].weight;
-				val6 += srcvec[b].er * srcmatrix[a*8+from2+5+b*matrix_width].weight;
-				val7 += srcvec[b].er * srcmatrix[a*8+from2+6+b*matrix_width].weight;
-				val8 += srcvec[b].er * srcmatrix[a*8+from2+7+b*matrix_width].weight;
-			}
-			dest[a*8+from2+0].er += val1;
-			dest[a*8+from2+1].er += val2;
-			dest[a*8+from2+2].er += val3;
-			dest[a*8+from2+3].er += val4;
-    	    
-			dest[a*8+from2+4].er += val5;
-			dest[a*8+from2+5].er += val6;
-			dest[a*8+from2+6].er += val7;
-			dest[a*8+from2+7].er += val8;
+			for (b=from; b<to; b++)
+				for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+					val[c] += srcvec[b].er * srcmatrix[a*(sizeof(val) / sizeof(real))+from2+c+b*matrix_width].weight;
+			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+				dest[a*8+from2+c].er += val[c];
 		}
 	
-		for (a=a*8; a<to2-from2; a++) {
+		for (a=a*(sizeof(val) / sizeof(real)); a<to2-from2; a++) {
 			for (b=from; b<to; b++) {
 				dest[a+from2].er += srcvec[b].er * srcmatrix[a+from2+b*matrix_width].weight;
 			}
