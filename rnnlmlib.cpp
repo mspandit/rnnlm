@@ -568,14 +568,14 @@ void CRnnLM::saveNet()       //will save the whole network structure
 			fprintf(fo, "\n\nWeights 1->c:\n");
 			for (b=0; b<layerc_size; b++) {
 				for (a=0; a<layer1_size; a++) {
-					fprintf(fo, "%.4f\n", syn1[a+b*layer1_size].weight);
+					syn1[a+b*layer1_size].printWeight(fo);
 				}
 			}
     	
 			fprintf(fo, "\n\nWeights c->2:\n");
 			for (b=0; b<layer2_size; b++) {
 				for (a=0; a<layerc_size; a++) {
-					fprintf(fo, "%.4f\n", sync[a+b*layerc_size].weight);
+					sync[a+b*layerc_size].printWeight(fo);
 				}
 			}
 		}
@@ -584,7 +584,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 			fprintf(fo, "\n\nWeights 1->2:\n");
 			for (b=0; b<layer2_size; b++) {
 				for (a=0; a<layer1_size; a++) {
-					fprintf(fo, "%.4f\n", syn1[a+b*layer1_size].weight);
+					syn1[a+b*layer1_size].printWeight(fo);
 				}
 			}
 		}
@@ -593,15 +593,13 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		if (layerc_size>0) {
 			for (b=0; b<layerc_size; b++) {
 				for (a=0; a<layer1_size; a++) {
-					fl=syn1[a+b*layer1_size].weight;
-					fwrite(&fl, sizeof(fl), 1, fo);
+					syn1[a+b*layer1_size].writeWeight(fo);
 				}
 			}
     	
 			for (b=0; b<layer2_size; b++) {
 				for (a=0; a<layerc_size; a++) {
-					fl=sync[a+b*layerc_size].weight;
-					fwrite(&fl, sizeof(fl), 1, fo);
+					sync[a+b*layerc_size].writeWeight(fo);
 				}
 			}
 		}
@@ -609,8 +607,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		{
 			for (b=0; b<layer2_size; b++) {
 				for (a=0; a<layer1_size; a++) {
-					fl=syn1[a+b*layer1_size].weight;
-					fwrite(&fl, sizeof(fl), 1, fo);
+					syn1[a+b*layer1_size].writeWeight(fo);
 				}
 			}
 		}
@@ -655,10 +652,22 @@ void Neuron::scanActivation(FILE *fi) {
 	ac = d;
 }
 
+void Synapse::scanWeight(FILE *fi) {
+	double d;
+	fscanf(fi, "%lf", &d);
+	weight=d;
+}
+
 void Neuron::readActivation(FILE *fi) {
 	float fl;
 	fread(&fl, sizeof(fl), 1, fi);
 	ac = fl;
+}
+
+void Synapse::readWeight(FILE *fi) {
+	float fl;
+	fread(&fl, sizeof(fl), 1, fi);
+	weight=fl;
 }
 
 void CRnnLM::restoreNet()    //will read whole network structure
@@ -806,16 +815,14 @@ void CRnnLM::restoreNet()    //will read whole network structure
 		goToDelimiter(':', fi);
 		for (b=0; b<layer1_size; b++) {
 			for (a=0; a<layer0_size; a++) {
-				fscanf(fi, "%lf", &d);
-				syn0[a+b*layer0_size].weight=d;
+				syn0[a+b*layer0_size].scanWeight(fi);
 			}
 		}
 	}
 	if (filetype==BINARY) {
 		for (b=0; b<layer1_size; b++) {
 			for (a=0; a<layer0_size; a++) {
-				fread(&fl, sizeof(fl), 1, fi);
-				syn0[a+b*layer0_size].weight=fl;
+				syn0[a+b*layer0_size].readWeight(fi);
 			}
 		}
 	}

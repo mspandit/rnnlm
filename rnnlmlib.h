@@ -37,6 +37,8 @@ public:
 	
 	void printWeight(FILE *);
 	void writeWeight(FILE *);
+	void readWeight(FILE *);
+	void scanWeight(FILE *);
 };
 
 struct vocab_word {
