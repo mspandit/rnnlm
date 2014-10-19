@@ -230,6 +230,24 @@ void CRnnLM::layer2b_copy_layer2() {
 	}
 }
 
+void CRnnLM::matrix0b_copy_matrix0() {
+	for (int b = 0; b < layer1_size; b++)
+		for (int a = 0; a < layer0_size; a++) 
+			syn0b[a + b * layer0_size].weight = syn0[a + b * layer0_size].weight;
+}
+
+void CRnnLM::matrix1b_copy_matrix1() {
+	for (int b = 0; b < layerc_size; b++) 
+		for (int a = 0; a < layer1_size; a++)
+			syn1b[a + b * layer1_size].weight = syn1[a + b * layer1_size].weight;
+}
+
+void CRnnLM::matrixcb_copy_matrixc() {
+	for (int b = 0; b < layer2_size; b++) 
+		for (int a = 0; a < layerc_size; a++)
+			syncb[a + b * layerc_size].weight = sync[a + b * layerc_size].weight;
+}
+
 void CRnnLM::saveWeights()      //saves current weights and unit activations
 {
 	int a,b;
@@ -239,18 +257,11 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
     layercb_copy_layerc();
     layer2b_copy_layer2();
     
-	for (b=0; b<layer1_size; b++) for (a=0; a<layer0_size; a++) {
-		syn0b[a+b*layer0_size].weight=syn0[a+b*layer0_size].weight;
-	}
+	matrix0b_copy_matrix0();
     
 	if (layerc_size>0) {
-		for (b=0; b<layerc_size; b++) for (a=0; a<layer1_size; a++) {
-			syn1b[a+b*layer1_size].weight=syn1[a+b*layer1_size].weight;
-		}
-	
-		for (b=0; b<layer2_size; b++) for (a=0; a<layerc_size; a++) {
-			syncb[a+b*layerc_size].weight=sync[a+b*layerc_size].weight;
-		}
+		matrix1b_copy_matrix1();
+		matrixcb_copy_matrixc();
 	}
 	else {
 		for (b=0; b<layer2_size; b++) for (a=0; a<layer1_size; a++) {
@@ -1116,7 +1127,7 @@ void CRnnLM::normalizeOutputClassActivation()
 		neu2[layer2_index].ac = fasterexp(neu2[layer2_index].ac - max) / sum; 
 }
 
-void CRnnLM::normalizeOutputWordActivation(int word)
+void CRnnLM::layer2_normalizeActivation(int word)
 {
 	double sum = 0.0;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
 	int a;
@@ -1253,7 +1264,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	}
 
 	if (word!=-1)
-		normalizeOutputWordActivation(word);
+		layer2_normalizeActivation(word);
 }
 
 void CRnnLM::computeErrorVectors(int word)

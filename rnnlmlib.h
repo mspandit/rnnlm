@@ -347,13 +347,18 @@ public:
 
 	void adjustWeights(int, int, int, real);
 	void computeErrorVectors(int);
+
 	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
-	void normalizeOutputWordActivation(int);
-	void randomizeWeights(Synapse *, int, int);
-	void sigmoidActivation(Neuron *, int);
+	void layer2_normalizeActivation(int);
+	void matrix0b_copy_matrix0();
+	void matrix1b_copy_matrix1();
+	void matrixcb_copy_matrixc();
 	void clearActivation(Neuron *, int, int);
 	void clearError(Neuron *, int, int);
+	
+	void randomizeWeights(Synapse *, int, int);
+	void sigmoidActivation(Neuron *, int);
     void computeProbDist(int last_word, int word);
     void learn(int last_word, int word);
     void copyHiddenLayerToInput();
