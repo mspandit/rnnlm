@@ -473,6 +473,15 @@ void CRnnLM::initialize()
 	}
 }
 
+void Synapse::printWeight(FILE *fo) {
+	fprintf(fo, "%.4f\n", weight);
+}
+
+void Synapse::writeWeight(FILE *fo) {
+	float fl = weight;
+	fwrite(&fl, sizeof(fl), 1, fo);
+}
+
 void CRnnLM::saveNet()       //will save the whole network structure                                                        
 {
 	FILE *fo;
@@ -542,15 +551,14 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		fprintf(fo, "\nWeights 0->1:\n");
 		for (b=0; b<layer1_size; b++) {
 			for (a=0; a<layer0_size; a++) {
-				fprintf(fo, "%.4f\n", syn0[a+b*layer0_size].weight);
+				syn0[a+b*layer0_size].printWeight(fo);
 			}
 		}
 	}
 	if (filetype==BINARY) {
 		for (b=0; b<layer1_size; b++) {
 			for (a=0; a<layer0_size; a++) {
-				fl=syn0[a+b*layer0_size].weight;
-				fwrite(&fl, sizeof(fl), 1, fo);
+				syn0[a+b*layer0_size].writeWeight(fo);
 			}
 		}
 	}
@@ -1559,8 +1567,7 @@ void CRnnLM::trainNet()
 		
 				for (a = bptt + bptt_block - 1; a > 0; a--) 
 					for (b = 0; b < layer1_size; b++) {
-						bptt_hidden[a * layer1_size + b].ac = bptt_hidden[(a - 1) * layer1_size + b].ac;
-						bptt_hidden[a * layer1_size + b].er = bptt_hidden[(a - 1) * layer1_size+b].er;
+						bptt_hidden[a * layer1_size + b].copy(bptt_hidden[(a - 1) * layer1_size+b]);
 					}
 			}
 

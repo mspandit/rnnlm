@@ -34,6 +34,9 @@ public:
 class Synapse {
 public:
     real weight;	//weight of synapse
+	
+	void printWeight(FILE *);
+	void writeWeight(FILE *);
 };
 
 struct vocab_word {
