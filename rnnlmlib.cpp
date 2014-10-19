@@ -201,28 +201,29 @@ void CRnnLM::learnVocabFromTrainFile()    //assumes that vocabulary is empty
 	fclose(fin);
 }
 
+void Neuron::copy(Neuron other) {
+	ac = other.ac;
+	er = other.er;
+}
+
 void CRnnLM::saveWeights()      //saves current weights and unit activations
 {
 	int a,b;
 
 	for (a=0; a<layer0_size; a++) {
-		neu0b[a].ac=neu0[a].ac;
-		neu0b[a].er=neu0[a].er;
+		neu0b[a].copy(neu0[a]);
 	}
 
 	for (a=0; a<layer1_size; a++) {
-		neu1b[a].ac=neu1[a].ac;
-		neu1b[a].er=neu1[a].er;
+		neu1b[a].copy(neu1[a]);
 	}
     
 	for (a=0; a<layerc_size; a++) {
-		neucb[a].ac=neuc[a].ac;
-		neucb[a].er=neuc[a].er;
+		neucb[a].copy(neuc[a]);
 	}
     
 	for (a=0; a<layer2_size; a++) {
-		neu2b[a].ac=neu2[a].ac;
-		neu2b[a].er=neu2[a].er;
+		neu2b[a].copy(neu2[a]);
 	}
     
 	for (b=0; b<layer1_size; b++) for (a=0; a<layer0_size; a++) {
@@ -307,6 +308,12 @@ void CRnnLM::restoreContext2()
 	int a;
     
 	for (a=0; a<layer1_size; a++) neu1[a].ac=neu1b2[a].ac;
+}
+
+void Neuron::clear()
+{
+	ac = 0;
+	er = 0;
 }
 
 void CRnnLM::initialize()
@@ -396,8 +403,7 @@ void CRnnLM::initialize()
 		//
 		bptt_hidden=(Neuron *)calloc((bptt+bptt_block+1)*layer1_size, sizeof(Neuron));
 		for (a=0; a<(bptt+bptt_block)*layer1_size; a++) {
-			bptt_hidden[a].ac=0;
-			bptt_hidden[a].er=0;
+			bptt_hidden[a].clear();
 		}
 		//
 		bptt_syn0=(Synapse *)calloc(layer0_size*layer1_size, sizeof(Synapse));
@@ -635,6 +641,18 @@ void CRnnLM::goToDelimiter(int delim, FILE *fi)
 	}
 }
 
+void Neuron::scanActivation(FILE *fi) {
+	double d;
+	fscanf(fi, "%lf", &d);
+	ac = d;
+}
+
+void Neuron::readActivation(FILE *fi) {
+	float fl;
+	fread(&fl, sizeof(fl), 1, fi);
+	ac = fl;
+}
+
 void CRnnLM::restoreNet()    //will read whole network structure
 {
 	FILE *fi;
@@ -766,15 +784,13 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
 		for (a=0; a<layer1_size; a++) {
-			fscanf(fi, "%lf", &d);
-			neu1[a].ac=d;
+			neu1[a].scanActivation(fi);
 		}
 	}
 	if (filetype==BINARY) {
 		fgetc(fi);
 		for (a=0; a<layer1_size; a++) {
-			fread(&fl, sizeof(fl), 1, fi);
-			neu1[a].ac=fl;
+			neu1[a].readActivation(fi);
 		}
 	}
 	//
@@ -866,10 +882,6 @@ void CRnnLM::restoreNet()    //will read whole network structure
 		for (aa=0; aa<direct_size; aa++) {
 			fread(&fl, sizeof(fl), 1, fi);
 			syn_d[aa]=fl;
-	    
-			/*fread(&si, 2, 1, fi);
-			fl=si/(float)(4*256);
-			syn_d[aa]=fl;*/
 		}
 	}
 	//
@@ -884,8 +896,7 @@ void CRnnLM::netFlush()   //cleans all activations and error vectors
 	int a;
 
 	for (a=0; a<layer0_size-layer1_size; a++) {
-		neu0[a].ac=0;
-		neu0[a].er=0;
+		neu0[a].clear();
 	}
 
 	for (a=layer0_size-layer1_size; a<layer0_size; a++) {   //last hidden layer is initialized to vector of 0.1 values to prevent unstability
@@ -894,18 +905,15 @@ void CRnnLM::netFlush()   //cleans all activations and error vectors
 	}
 
 	for (a=0; a<layer1_size; a++) {
-		neu1[a].ac=0;
-		neu1[a].er=0;
+		neu1[a].clear();
 	}
     
 	for (a=0; a<layerc_size; a++) {
-		neuc[a].ac=0;
-		neuc[a].er=0;
+		neuc[a].clear();
 	}
     
 	for (a=0; a<layer2_size; a++) {
-		neu2[a].ac=0;
-		neu2[a].er=0;
+		neu2[a].clear();
 	}
 }
 
@@ -922,8 +930,7 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 	if (bptt>0) {
 		for (a=1; a<bptt+bptt_block; a++) bptt_history[a]=0;
 		for (a=bptt+bptt_block-1; a>1; a--) for (b=0; b<layer1_size; b++) {
-			bptt_hidden[a*layer1_size+b].ac=0;
-			bptt_hidden[a*layer1_size+b].er=0;
+			bptt_hidden[a*layer1_size+b].clear();
 		}
 	}
 
@@ -1052,13 +1059,16 @@ void CRnnLM::matrixXvector(
 	}*/
 }
 
+void Neuron::sigmoidActivation() {
+	if (ac > 50) ac = 50;  //for numerical stability
+	if (ac < -50) ac = -50;  //for numerical stability
+	ac = 1 / (1 + fasterexp(-ac));
+}			
+
 void CRnnLM::sigmoidActivation(Neuron *neurons, int num_neurons)
 {
-	for (int layer_index = 0; layer_index < num_neurons; layer_index++) {
-		if (neurons[layer_index].ac > 50) neurons[layer_index].ac = 50;  //for numerical stability
-		if (neurons[layer_index].ac < -50) neurons[layer_index].ac = -50;  //for numerical stability
-		neurons[layer_index].ac = 1 / (1 + fasterexp(-neurons[layer_index].ac));
-	}	
+	for (int layer_index = 0; layer_index < num_neurons; layer_index++) 
+		neurons[layer_index].sigmoidActivation();
 }
 
 void CRnnLM::randomizeWeights(Synapse *synapses, int src_size, int dest_size)
@@ -1388,8 +1398,7 @@ void CRnnLM::learn(int last_word, int word)
 	}
 	else		//BPTT
 	{
-		for (b=0; b<layer1_size; b++) bptt_hidden[b].ac=neu1[b].ac;
-		for (b=0; b<layer1_size; b++) bptt_hidden[b].er=neu1[b].er;
+		for (b=0; b<layer1_size; b++) bptt_hidden[b].copy(neu1[b]);
 	
 		if (((counter%bptt_block)==0) || (independent && (word==0))) {
 			for (step=0; step<bptt+bptt_block-2; step++) {
@@ -1749,8 +1758,7 @@ void CRnnLM::testNet()
 				bptt_history[0]=last_word;
                                     
 				for (a=bptt+bptt_block-1; a>0; a--) for (b=0; b<layer1_size; b++) {
-					bptt_hidden[a*layer1_size+b].ac=bptt_hidden[(a-1)*layer1_size+b].ac;
-					bptt_hidden[a*layer1_size+b].er=bptt_hidden[(a-1)*layer1_size+b].er;
+					bptt_hidden[a*layer1_size+b].copy(bptt_hidden[(a-1)*layer1_size+b]);
 				}
 			}
 			//
