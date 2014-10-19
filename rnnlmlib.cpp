@@ -1003,9 +1003,7 @@ void CRnnLM::matrixXvector(
 	    
 			for (a=from2; a<to2; a++)
 				for (int c = 0; c < sizeof(val) / sizeof(real); c++)
-					val[c] += srcvec[a].ac * srcmatrix[a+(b*(sizeof(val) / sizeof(real))+from+c)*matrix_width].weight;
-			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
-				dest[b*8+from+c].ac += val[c];
+					dest[b*(sizeof(val) / sizeof(real))+from+c].ac += srcvec[a].ac * srcmatrix[a+(b*(sizeof(val) / sizeof(real))+from+c)*matrix_width].weight;
 		}
     
 		for (b=b*(sizeof(val) / sizeof(real)); b<to-from; b++) {
@@ -1015,15 +1013,15 @@ void CRnnLM::matrixXvector(
 		}
 	}
 	else {		//er mod
-		for (a=0; a<(to2-from2)/8; a++) {
+		for (a=0; a<(to2-from2)/(sizeof(val) / sizeof(real)); a++) {
 			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
 				val[c] = 0;
 	    
 			for (b=from; b<to; b++)
-				for (int c = 0; c < sizeof(val) / sizeof(real); c++)
+				for (int c = 0; c < (sizeof(val) / sizeof(real)); c++)
 					val[c] += srcvec[b].er * srcmatrix[a*(sizeof(val) / sizeof(real))+from2+c+b*matrix_width].weight;
-			for (int c = 0; c < sizeof(val) / sizeof(real); c++)
-				dest[a*8+from2+c].er += val[c];
+			for (int c = 0; (c < sizeof(val) / sizeof(real)); c++)
+				dest[a*(sizeof(val) / sizeof(real))+from2+c].er += val[c];
 		}
 	
 		for (a=a*(sizeof(val) / sizeof(real)); a<to2-from2; a++) {
