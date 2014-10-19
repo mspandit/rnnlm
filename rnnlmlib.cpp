@@ -316,17 +316,17 @@ void CRnnLM::initialize()
 	layer0_size = vocab_size + layer1_size;
 	layer2_size = vocab_size + class_size;
 
-	neu0 = (struct neuron *)calloc(layer0_size, sizeof(struct neuron));
-	neu1 = (struct neuron *)calloc(layer1_size, sizeof(struct neuron));
-	neuc = (struct neuron *)calloc(layerc_size, sizeof(struct neuron));
-	neu2 = (struct neuron *)calloc(layer2_size, sizeof(struct neuron));
+	neu0 = (Neuron *)calloc(layer0_size, sizeof(Neuron));
+	neu1 = (Neuron *)calloc(layer1_size, sizeof(Neuron));
+	neuc = (Neuron *)calloc(layerc_size, sizeof(Neuron));
+	neu2 = (Neuron *)calloc(layer2_size, sizeof(Neuron));
 
-	syn0 = (struct synapse *)calloc(layer0_size * layer1_size, sizeof(struct synapse));
+	syn0 = (Synapse *)calloc(layer0_size * layer1_size, sizeof(Synapse));
 	if (layerc_size==0)
-		syn1=(struct synapse *)calloc(layer1_size * layer2_size, sizeof(struct synapse));
+		syn1=(Synapse *)calloc(layer1_size * layer2_size, sizeof(Synapse));
 	else {
-		syn1=(struct synapse *)calloc(layer1_size * layerc_size, sizeof(struct synapse));
-		sync=(struct synapse *)calloc(layerc_size * layer2_size, sizeof(struct synapse));
+		syn1=(Synapse *)calloc(layer1_size * layerc_size, sizeof(Synapse));
+		sync=(Synapse *)calloc(layerc_size * layer2_size, sizeof(Synapse));
 	}
 
 	if (syn1 == NULL) {
@@ -346,18 +346,18 @@ void CRnnLM::initialize()
 		exit(1);
 	}
 
-	neu0b=(struct neuron *)calloc(layer0_size, sizeof(struct neuron));
-	neu1b=(struct neuron *)calloc(layer1_size, sizeof(struct neuron));
-	neucb=(struct neuron *)calloc(layerc_size, sizeof(struct neuron));
-	neu1b2=(struct neuron *)calloc(layer1_size, sizeof(struct neuron));
-	neu2b=(struct neuron *)calloc(layer2_size, sizeof(struct neuron));
+	neu0b=(Neuron *)calloc(layer0_size, sizeof(Neuron));
+	neu1b=(Neuron *)calloc(layer1_size, sizeof(Neuron));
+	neucb=(Neuron *)calloc(layerc_size, sizeof(Neuron));
+	neu1b2=(Neuron *)calloc(layer1_size, sizeof(Neuron));
+	neu2b=(Neuron *)calloc(layer2_size, sizeof(Neuron));
 
-	syn0b=(struct synapse *)calloc(layer0_size*layer1_size, sizeof(struct synapse));
+	syn0b=(Synapse *)calloc(layer0_size*layer1_size, sizeof(Synapse));
 	if (layerc_size==0)
-		syn1b=(struct synapse *)calloc(layer1_size*layer2_size, sizeof(struct synapse));
+		syn1b=(Synapse *)calloc(layer1_size*layer2_size, sizeof(Synapse));
 	else {
-		syn1b=(struct synapse *)calloc(layer1_size*layerc_size, sizeof(struct synapse));
-		syncb=(struct synapse *)calloc(layerc_size*layer2_size, sizeof(struct synapse));
+		syn1b=(Synapse *)calloc(layer1_size*layerc_size, sizeof(Synapse));
+		syncb=(Synapse *)calloc(layerc_size*layer2_size, sizeof(Synapse));
 	}
 
 	if (syn1b==NULL) {
@@ -394,13 +394,13 @@ void CRnnLM::initialize()
 		bptt_history=(int *)calloc((bptt+bptt_block+10), sizeof(int));
 		for (a=0; a<bptt+bptt_block; a++) bptt_history[a]=-1;
 		//
-		bptt_hidden=(neuron *)calloc((bptt+bptt_block+1)*layer1_size, sizeof(neuron));
+		bptt_hidden=(Neuron *)calloc((bptt+bptt_block+1)*layer1_size, sizeof(Neuron));
 		for (a=0; a<(bptt+bptt_block)*layer1_size; a++) {
 			bptt_hidden[a].ac=0;
 			bptt_hidden[a].er=0;
 		}
 		//
-		bptt_syn0=(struct synapse *)calloc(layer0_size*layer1_size, sizeof(struct synapse));
+		bptt_syn0=(Synapse *)calloc(layer0_size*layer1_size, sizeof(Synapse));
 		if (bptt_syn0==NULL) {
 			printf("Memory allocation failed\n");
 			exit(1);
@@ -931,9 +931,9 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 }
 
 void CRnnLM::matrixXvector(
-	struct neuron *dest, 
-	struct neuron *srcvec, 
-	struct synapse *srcmatrix, 
+	Neuron *dest, 
+	Neuron *srcvec, 
+	Synapse *srcmatrix, 
 	int matrix_width, 
 	int from, 
 	int to, 
@@ -1052,7 +1052,7 @@ void CRnnLM::matrixXvector(
 	}*/
 }
 
-void CRnnLM::sigmoidActivation(struct neuron *neurons, int num_neurons)
+void CRnnLM::sigmoidActivation(Neuron *neurons, int num_neurons)
 {
 	for (int layer_index = 0; layer_index < num_neurons; layer_index++) {
 		if (neurons[layer_index].ac > 50) neurons[layer_index].ac = 50;  //for numerical stability
@@ -1061,20 +1061,20 @@ void CRnnLM::sigmoidActivation(struct neuron *neurons, int num_neurons)
 	}	
 }
 
-void CRnnLM::randomizeWeights(struct synapse *synapses, int src_size, int dest_size)
+void CRnnLM::randomizeWeights(Synapse *synapses, int src_size, int dest_size)
 {
 	for (int dest_index = 0; dest_index < dest_size; dest_index++) 
 		for (int src_index = 0; src_index < src_size; src_index++)
 			synapses[src_index + dest_index * src_size].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }
 
-void CRnnLM::clearActivation(struct neuron *neurons, int first_neuron, int num_neurons)
+void CRnnLM::clearActivation(Neuron *neurons, int first_neuron, int num_neurons)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
 		neurons[neuron_index].ac = 0;
 }
 
-void CRnnLM::clearError(struct neuron *neurons, int first_neuron, int num_neurons)
+void CRnnLM::clearError(Neuron *neurons, int first_neuron, int num_neurons)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
 		neurons[neuron_index].er = 0;

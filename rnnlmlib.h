@@ -19,12 +19,14 @@
 typedef WEIGHTTYPE real;	// NN weights
 typedef WEIGHTTYPE direct_t;	// ME weights
 
-struct neuron {
+class Neuron {
+public:
     real ac;		//actual value stored in neuron
     real er;		//error value in neuron, used by learning algorithm
 };
                 
-struct synapse {
+class Synapse {
+public:
     real weight;	//weight of synapse
 };
 
@@ -107,36 +109,36 @@ protected:
     int bptt;
     int bptt_block;
     int *bptt_history;
-    neuron *bptt_hidden;
-    struct synapse *bptt_syn0;
+    Neuron *bptt_hidden;
+    Synapse *bptt_syn0;
     
     int gen;
 
     int independent;
     
-    struct neuron *neu0;		//neurons in input layer
-    struct neuron *neu1;		//neurons in hidden layer
-    struct neuron *neuc;		//neurons in hidden layer
-    struct neuron *neu2;		//neurons in output layer
+    Neuron *neu0;		//neurons in input layer
+    Neuron *neu1;		//neurons in hidden layer
+    Neuron *neuc;		//neurons in hidden layer
+    Neuron *neu2;		//neurons in output layer
 
-    struct synapse *syn0;		//weights between input and hidden layer
-    struct synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
-    struct synapse *sync;		//weights between hidden and compression layer
+    Synapse *syn0;		//weights between input and hidden layer
+    Synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
+    Synapse *sync;		//weights between hidden and compression layer
     direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     
     //backup used in training:
-    struct neuron *neu0b;
-    struct neuron *neu1b;
-    struct neuron *neucb;
-    struct neuron *neu2b;
+    Neuron *neu0b;
+    Neuron *neu1b;
+    Neuron *neucb;
+    Neuron *neu2b;
 
-    struct synapse *syn0b;
-    struct synapse *syn1b;
-    struct synapse *syncb;
+    Synapse *syn0b;
+    Synapse *syn1b;
+    Synapse *syncb;
     direct_t *syn_db;
     
     //backup used in n-bset rescoring:
-    struct neuron *neu1b2;
+    Neuron *neu1b2;
     
     
 public:
@@ -337,10 +339,10 @@ public:
 	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
 	void normalizeOutputWordActivation(int);
-	void randomizeWeights(struct synapse *, int, int);
-	void sigmoidActivation(struct neuron *, int);
-	void clearActivation(struct neuron *, int, int);
-	void clearError(struct neuron *, int, int);
+	void randomizeWeights(Synapse *, int, int);
+	void sigmoidActivation(Neuron *, int);
+	void clearActivation(Neuron *, int, int);
+	void clearError(Neuron *, int, int);
     void computeProbDist(int last_word, int word);
     void learn(int last_word, int word);
     void copyHiddenLayerToInput();
@@ -350,7 +352,7 @@ public:
     void testNbest();
     void testGen();
     
-    void matrixXvector(struct neuron *dest, struct neuron *srcvec, struct synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
+    void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
 };
 
 #endif
