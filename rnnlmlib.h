@@ -362,8 +362,18 @@ public:
     void testNet();
     void testNbest();
     void testGen();
-    
+
+    void slowMatrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);    
     void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
+	
+	void layer_copy_layer(Neuron [], Neuron []);
+	void layer1b_copy_layer1();
+	void layercb_copy_layerc();
+	void layer2b_copy_layer2();
+	void layer0_clear();
+	void layer1_clear();
+	void layerc_clear();
+	void layer2_clear();
 };
 
 #endif

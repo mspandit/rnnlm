@@ -206,25 +206,38 @@ void Neuron::copy(Neuron other) {
 	er = other.er;
 }
 
+void CRnnLM::layer_copy_layer(Neuron neu0b[], Neuron neu0[]) {
+	for (int a=0; a<layer0_size; a++) {
+		neu0b[a].copy(neu0[a]);
+	}
+}
+
+void CRnnLM::layer1b_copy_layer1() {
+	for (int a=0; a<layer1_size; a++) {
+		neu1b[a].copy(neu1[a]);
+	}
+}
+
+void CRnnLM::layercb_copy_layerc() {
+	for (int a=0; a<layerc_size; a++) {
+		neucb[a].copy(neuc[a]);
+	}
+}
+
+void CRnnLM::layer2b_copy_layer2() {
+	for (int a=0; a<layer2_size; a++) {
+		neu2b[a].copy(neu2[a]);
+	}
+}
+
 void CRnnLM::saveWeights()      //saves current weights and unit activations
 {
 	int a,b;
 
-	for (a=0; a<layer0_size; a++) {
-		neu0b[a].copy(neu0[a]);
-	}
-
-	for (a=0; a<layer1_size; a++) {
-		neu1b[a].copy(neu1[a]);
-	}
-    
-	for (a=0; a<layerc_size; a++) {
-		neucb[a].copy(neuc[a]);
-	}
-    
-	for (a=0; a<layer2_size; a++) {
-		neu2b[a].copy(neu2[a]);
-	}
+	layer_copy_layer(neu0b, neu0);
+	layer1b_copy_layer1();
+    layercb_copy_layerc();
+    layer2b_copy_layer2();
     
 	for (b=0; b<layer1_size; b++) for (a=0; a<layer0_size; a++) {
 		syn0b[a+b*layer0_size].weight=syn0[a+b*layer0_size].weight;
@@ -906,30 +919,46 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	fclose(fi);
 }
 
+void CRnnLM::layer0_clear() {
+	for (int a=0; a<layer0_size-layer1_size; a++) {
+		neu0[a].clear();
+	}	
+}
+
+void CRnnLM::layer1_clear() {
+	for (int a=0; a<layer1_size; a++) {
+		neu1[a].clear();
+	}
+}
+
+void CRnnLM::layerc_clear() {
+	for (int a=0; a<layerc_size; a++) {
+		neuc[a].clear();
+	}
+}
+
+void CRnnLM::layer2_clear() {
+	for (int a=0; a<layer2_size; a++) {
+		neu2[a].clear();
+	}
+}
+
 void CRnnLM::netFlush()   //cleans all activations and error vectors
 {
 	int a;
 
-	for (a=0; a<layer0_size-layer1_size; a++) {
-		neu0[a].clear();
-	}
+	layer0_clear();
 
 	for (a=layer0_size-layer1_size; a<layer0_size; a++) {   //last hidden layer is initialized to vector of 0.1 values to prevent unstability
 		neu0[a].ac=0.1;
 		neu0[a].er=0;
 	}
 
-	for (a=0; a<layer1_size; a++) {
-		neu1[a].clear();
-	}
+	layer1_clear();
     
-	for (a=0; a<layerc_size; a++) {
-		neuc[a].clear();
-	}
+	layerc_clear();
     
-	for (a=0; a<layer2_size; a++) {
-		neu2[a].clear();
-	}
+	layer2_clear();
 }
 
 void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
@@ -1054,24 +1083,40 @@ void CRnnLM::matrixXvector(
 			if (dest[a].er<-gradient_cutoff) dest[a].er=-gradient_cutoff;
 		}
 	}
-    
-	//this is normal implementation (about 3x slower):
-    
-	/*if (type==0) {		//ac mod
-	for (b=from; b<to; b++) {
-	for (a=from2; a<to2; a++) {
-	dest[b].ac += srcvec[a].ac * srcmatrix[a+b*matrix_width].weight;
+}
+void CRnnLM::slowMatrixXvector(
+	Neuron *dest, 
+	Neuron *srcvec, 
+	Synapse *srcmatrix, 
+	int matrix_width, 
+	int from, 
+	int to, 
+	int from2, 
+	int to2, 
+	int type
+)
+{
+	int a, b;
+    if (type==0) {		//ac mod
+		for (b=from; b<to; b++) {
+			for (a=from2; a<to2; a++) {
+				dest[b].ac += srcvec[a].ac * srcmatrix[a+b*matrix_width].weight;
+			}
+		}
 	}
+	else if (type==1) { // er mod
+		for (a=from2; a<to2; a++) {
+			for (b=from; b<to; b++) {
+				dest[a].er += srcvec[b].er * srcmatrix[a+b*matrix_width].weight;
+			}
+		}
+    	
+		if (gradient_cutoff>0)
+		for (a=from2; a<to2; a++) {
+			if (dest[a].er>gradient_cutoff) dest[a].er=gradient_cutoff;
+			if (dest[a].er<-gradient_cutoff) dest[a].er=-gradient_cutoff;
+		}
 	}
-	}
-	else 		//er mod
-	if (type==1) {
-	for (a=from2; a<to2; a++) {
-	for (b=from; b<to; b++) {
-	dest[a].er += srcvec[b].er * srcmatrix[a+b*matrix_width].weight;
-	}
-	}
-	}*/
 }
 
 void Neuron::sigmoidActivation() {
