@@ -18,6 +18,7 @@
 #include "neuron.h"
 #include "synapse.h"
 #include "vocabulary.h"
+#include "layer.h"
 #include "rnnlmlib.h"
 
 ///// include blas
@@ -66,12 +67,6 @@ int CRnnLM::readWordIndex(FILE *fin)
 	if (feof(fin)) return -1;
 
 	return vocab.search(word);
-}
-
-void Layer::copy(const Layer &src) {
-	for (int a = 0; a < _size; a++) {
-		_neurons[a].copy(src._neurons[a]);
-	}
 }
 
 void CRnnLM::matrix_copy_matrix(Synapse dest[], Synapse src[], int rows, int columns) {
@@ -248,18 +243,6 @@ void CRnnLM::initialize()
 	}
 }
 
-void Layer::print(FILE *fo) {
-	for (int a = 0; a < _size; a++) 
-		fprintf(fo, "%.4f\n", _neurons[a].ac);
-}
-
-void CRnnLM::layer_write(Neuron neurons[], int layer_size, FILE *fo) {
-	for (int a = 0; a < layer_size; a++) {
-		float fl = neurons[a].ac;
-		fwrite(&fl, sizeof(fl), 1, fo);
-	}
-}
-
 void CRnnLM::matrix_print(Synapse synapses[], int rows, int columns, FILE *fo) {
 	for (long long b = 0; b < rows; b++) {
 		for (int a = 0; a < columns; a++) {
@@ -334,7 +317,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		layer1.print(fo);
 	}
 	if (filetype==BINARY) {
-		layer_write(layer1._neurons, layer1._size, fo);
+		layer1.write(fo);
 	}
 	//////////
 	if (filetype==TEXT) {
@@ -400,17 +383,6 @@ void CRnnLM::goToDelimiter(int delim, FILE *fi)
 			printf("Unexpected end of file\n");
 			exit(1);
 		}
-	}
-}
-
-void CRnnLM::layer_scan(Neuron neurons[], int layer_size, FILE *fi) {
-	for (int a = 0; a < layer_size; a++)
-		neurons[a].scanActivation(fi);
-}
-
-void CRnnLM::layer_read(Neuron neurons[], int layer_size, FILE *fi) {
-	for (int a = 0; a < layer_size; a++) {
-		neurons[a].readActivation(fi);
 	}
 }
 
@@ -547,11 +519,11 @@ void CRnnLM::restoreNet()    //will read whole network structure
     
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
-		layer_scan(layer1._neurons, layer1._size, fi);
+		layer1.scan(fi);
 	}
 	if (filetype==BINARY) {
 		fgetc(fi);
-		layer_read(layer1._neurons, layer1._size, fi);
+		layer1.read(fi);
 	}
 	//
 	if (filetype==TEXT) {
@@ -608,17 +580,6 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	saveWeights();
 
 	fclose(fi);
-}
-
-void Layer::clear() {
-	for (int a=0; a < _size; a++) {
-		_neurons[a].clear();
-	}
-}
-
-void Layer::setActivation(real activation) {
-	for (int a = 0; a < _size; a++)
-		_neurons[a].ac = 1.0;
 }
 
 void CRnnLM::inputLayer_clear(Neuron neurons[], int layer_size, int num_state_neurons) {
@@ -760,21 +721,10 @@ void CRnnLM::randomizeWeights(Synapse *synapses, int src_size, int dest_size)
 			synapses[src_index + dest_index * src_size].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }
 
-void Layer::clearActivation() {
-	for (int neuron_index = 0; neuron_index < _size; neuron_index++) 
-		_neurons[neuron_index].ac = 0;	
-}
-
 void CRnnLM::layer2_clearActivation(Neuron neurons[], int first_neuron, int num_neurons)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
 		neurons[neuron_index].ac = 0;
-}
-
-void Layer::clearError()
-{
-	for (int neuron_index = 0; neuron_index < _size; neuron_index++) 
-		_neurons[neuron_index].er = 0;
 }
 
 void CRnnLM::normalizeOutputClassActivation()
@@ -815,11 +765,6 @@ void CRnnLM::clearClassActivation(int word)
 		layer2._neurons[class_words[vocab._words[word].class_index][c]].ac = 0;
 }
 
-void CRnnLM::layer_receiveActivation(Neuron dest[], int dest_size, Neuron src[], int src_size, int src_index, Synapse matrix[]) {
-	for (int index = 0; index < dest_size; index++)
-		dest[index].ac += src[src_index].ac * matrix[src_index + index * src_size].weight;
-}
-
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
@@ -835,7 +780,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 
 	// Propagate activation of last word into new hidden layer
 	if (last_word != -1)
-		layer_receiveActivation(layer1._neurons, layer1._size, layer0._neurons, layer0._size, last_word, syn0);
+		layer1.receiveActivation(layer0, last_word, syn0);
 
 	//activate 1      --sigmoid
     sigmoidActivation(layer1._neurons, layer1._size);

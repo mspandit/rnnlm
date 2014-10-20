@@ -19,26 +19,6 @@ const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 
-class Layer {
-public:
-	Neuron *_neurons;
-	int _size;
-
-	Layer() {
-		_neurons = NULL;
-		_size = 0;
-	}
-	~Layer() {
-		if (_neurons != NULL) free(_neurons);
-	}
-	void copy(const Layer &);
-	void clearActivation();
-	void clearError();
-	void clear();
-	void print(FILE *);
-	void setActivation(real);
-};
-
 class CRnnLM{
 protected:
     char train_file[MAX_STRING];
@@ -312,10 +292,6 @@ public:
     void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
 	
 	void layer2_clearActivation(Neuron *, int, int);
-	void layer_write(Neuron neurons[], int layer_size, FILE *fo);
-	void layer_scan(Neuron [], int, FILE *);
-	void layer_read(Neuron [], int, FILE *);
-	void layer_receiveActivation(Neuron [], int, Neuron [], int, int, Synapse []);
 	void inputLayer_clear(Neuron [], int, int);
 };
 

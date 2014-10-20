@@ -19,6 +19,7 @@
 #include "neuron.h"
 #include "synapse.h"
 #include "vocabulary.h"
+#include "layer.h"
 #include "rnnlmlib.h"
 #include "options.h"
 
