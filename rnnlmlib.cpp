@@ -782,48 +782,22 @@ void CRnnLM::restoreNet()    //will read whole network structure
 			matrix_scan(syn1, layer2_size, layer1_size, fi);
 		}
 		else
-		{				//with compress layer
-			for (b=0; b<layerc_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fscanf(fi, "%lf", &d);
-					syn1[a+b*layer1_size].weight=d;
-				}
-			}
-    	
+		{
+			matrix_scan(syn1, layerc_size, layer1_size, fi);
+			   	
 			goToDelimiter(':', fi);
-    	
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layerc_size; a++) {
-					fscanf(fi, "%lf", &d);
-					sync[a+b*layerc_size].weight=d;
-				}
-			}
+
+			matrix_scan(sync, layer2_size, layerc_size, fi);
 		}
 	}
 	if (filetype==BINARY) {
 		if (layerc_size==0) {	//no compress layer
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fread(&fl, sizeof(fl), 1, fi);
-					syn1[a+b*layer1_size].weight=fl;
-				}
-			}
+			matrix_read(syn1, layer2_size, layer1_size, fi);
 		}
 		else
 		{				//with compress layer
-			for (b=0; b<layerc_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fread(&fl, sizeof(fl), 1, fi);
-					syn1[a+b*layer1_size].weight=fl;
-				}
-			}
-    	
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layerc_size; a++) {
-					fread(&fl, sizeof(fl), 1, fi);
-					sync[a+b*layerc_size].weight=fl;
-				}
-			}
+			matrix_read(syn1, layerc_size, layer1_size, fi);
+			matrix_read(sync, layer2_size, layerc_size, fi);
 		}
 	}
 	//
