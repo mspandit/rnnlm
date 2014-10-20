@@ -5,6 +5,7 @@
 #include "types.h"
 #include "neuron.h"
 #include "synapse.h"
+#include "vocabulary.h"
 #include "rnnlmlib.h"
 #include "options.h"
 

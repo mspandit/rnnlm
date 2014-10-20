@@ -6,6 +6,8 @@
 #define WEIGHTTYPE double
 #endif
 
+#define MAX_STRING 100
+
 typedef WEIGHTTYPE real;	// NN weights
 typedef WEIGHTTYPE direct_t;	// ME weights
 

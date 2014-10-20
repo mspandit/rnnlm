@@ -10,36 +10,6 @@
 #ifndef _RNNLMLIB_H_
 #define _RNNLMLIB_H_
 
-#define MAX_STRING 100
-
-class Word {
-public:
-    int cn;
-    char word[MAX_STRING];
-
-    real prob;
-    int class_index;
-	
-	void set(char *);
-};
-
-class Vocabulary {
-public:
-    Word *_words;
-    int *_hash;
-    int _hash_size;
-    int _max_size;
-    int _size;
-
-    void sort();
-    int search(char *word);
-    int getHash(char *word);
-    int add(char *word);
-	void clear();
-    int learnFromTrainFile(char *, int);
-    void readWord(char *word, FILE *fin);
-};
-
 const unsigned int PRIMES[]={108641969, 116049371, 125925907, 133333309, 145678979, 175308587, 197530793, 234567803, 251851741, 264197411, 330864029, 399999781,
 407407183, 459258997, 479012069, 545678687, 560493491, 607407037, 629629243, 656789717, 716048933, 718518067, 725925469, 733332871, 753085943, 755555077,
 782715551, 790122953, 812345159, 814814293, 893826581, 923456189, 940740127, 953085797, 985184539, 990122807};
@@ -78,10 +48,6 @@ protected:
     int iter;
 
 	Vocabulary vocab;
-	void vocab_setClassIndexOld();
-	void vocab_setClassIndexNew();
-	void vocab_print(FILE *);
-	void vocab_scan(FILE *);
 	
     int train_words;
     int train_cur_pos;
@@ -179,11 +145,7 @@ public:
 	train_words=0;
 	train_cur_pos=0;
 
-	vocab._max_size=100;
-	vocab._size=0;
-	vocab._words=(Word *)calloc(vocab._max_size, sizeof(Word));
-	vocab._hash_size=100000000;
-	vocab._hash=(int *)calloc(vocab._hash_size, sizeof(int));
+	vocab.initialize(100, 0, 100000000);
 	
 	layer1_size=30;
 	
@@ -271,9 +233,6 @@ public:
 	    free(class_max_cn);
 	    free(class_word_count);
 	    free(class_words);
-	
-	    free(vocab._words);
-	    free(vocab._hash);
 
 	    if (bptt_history!=NULL) free(bptt_history);
 	    if (bptt_hidden!=NULL) free(bptt_hidden);

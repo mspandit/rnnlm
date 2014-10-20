@@ -17,11 +17,14 @@ neuron.o : neuron.cpp
 synapse.o : synapse.cpp
 	$(CC) $(CFLAGS) $(OPT_DEF) -c synapse.cpp
 
+vocabulary.o : vocabulary.cpp
+	$(CC) $(CFLAGS) $(OPT_DEF) -c vocabulary.cpp
+
 rnnlm.o : rnnlm.cpp
 	$(CC) $(CFLAGS) $(OPT_DEF) -c rnnlm.cpp
 
-rnnlm : rnnlmlib.o options.o rnnlm.o neuron.o synapse.o
-	$(CC) $(CFLAGS) $(OPT_DEF) rnnlmlib.o options.o neuron.o synapse.o rnnlm.o -o rnnlm
+rnnlm : rnnlmlib.o options.o rnnlm.o neuron.o synapse.o vocabulary.o
+	$(CC) $(CFLAGS) $(OPT_DEF) rnnlmlib.o options.o neuron.o synapse.o vocabulary.o rnnlm.o -o rnnlm
 
 clean:
 	rm -rf *.o rnnlm
