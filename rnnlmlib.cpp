@@ -14,6 +14,8 @@
 #include <time.h>
 #include <cfloat>
 #include "fastexp.h"
+#include "types.h"
+#include "neuron.h"
 #include "rnnlmlib.h"
 
 ///// include blas
@@ -201,11 +203,6 @@ void CRnnLM::learnVocabFromTrainFile()    //assumes that vocabulary is empty
 	fclose(fin);
 }
 
-void Neuron::copy(Neuron other) {
-	ac = other.ac;
-	er = other.er;
-}
-
 void CRnnLM::layer_copy_layer(Neuron neu0b[], int layer_size, Neuron neu0[]) {
 	for (int a=0; a<layer_size; a++) {
 		neu0b[a].copy(neu0[a]);
@@ -253,12 +250,6 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 	if (layerc_size>0) {
 		matrix_copy_matrix(sync, syncb, layer2_size, layerc_size);
 	}
-}
-
-void Neuron::clear()
-{
-	ac = 0;
-	er = 0;
 }
 
 void CRnnLM::initialize()
@@ -579,12 +570,6 @@ void CRnnLM::goToDelimiter(int delim, FILE *fi)
 	}
 }
 
-void Neuron::scanActivation(FILE *fi) {
-	double d;
-	fscanf(fi, "%lf", &d);
-	ac = d;
-}
-
 void CRnnLM::layer_scan(Neuron neurons[], int layer_size, FILE *fi) {
 	for (int a = 0; a < layer_size; a++)
 		neurons[a].scanActivation(fi);
@@ -594,12 +579,6 @@ void Synapse::scanWeight(FILE *fi) {
 	double d;
 	fscanf(fi, "%lf", &d);
 	weight=d;
-}
-
-void Neuron::readActivation(FILE *fi) {
-	float fl;
-	fread(&fl, sizeof(fl), 1, fi);
-	ac = fl;
 }
 
 void CRnnLM::layer_read(Neuron neurons[], int layer_size, FILE *fi) {
@@ -962,12 +941,6 @@ void CRnnLM::slowMatrixXvector(
 	}
 }
 
-void Neuron::sigmoidActivation() {
-	if (ac > 50) ac = 50;  //for numerical stability
-	if (ac < -50) ac = -50;  //for numerical stability
-	ac = 1 / (1 + fasterexp(-ac));
-}			
-
 void CRnnLM::sigmoidActivation(Neuron *neurons, int num_neurons)
 {
 	for (int layer_index = 0; layer_index < num_neurons; layer_index++) 
@@ -1095,12 +1068,13 @@ void CRnnLM::computeProbDist(int last_word, int word)
 			hash[a]=hash[a]%(direct_size/2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
 		}
 	
-		for (a=vocab_size; a<layer2_size; a++) {
-			for (b=0; b<direct_order; b++) if (hash[b]) {
-				neu2[a].ac+=syn_d[hash[b]];		//apply current parameter and move to the next one
-				hash[b]++;
-			} else break;
-		}
+		for (b=0; b<direct_order; b++) 
+			for (a=vocab_size; a<layer2_size; a++) {
+				if (hash[b]) {
+					neu2[a].ac+=syn_d[hash[b]];		//apply current parameter and move to the next one
+					hash[b]++;
+				} else break;
+			}
 	}
 
 	//activation 2   --softmax on classes

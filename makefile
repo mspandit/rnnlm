@@ -11,11 +11,14 @@ rnnlmlib.o : rnnlmlib.cpp
 options.o : options.cpp
 	$(CC) $(CFLAGS) $(OPT_DEF) -c options.cpp
 
+neuron.o : neuron.cpp
+	$(CC) $(CFLAGS) $(OPT_DEF) -c neuron.cpp
+
 rnnlm.o : rnnlm.cpp
 	$(CC) $(CFLAGS) $(OPT_DEF) -c rnnlm.cpp
 
-rnnlm : rnnlmlib.o options.o rnnlm.o
-	$(CC) $(CFLAGS) $(OPT_DEF) rnnlmlib.o options.o rnnlm.o -o rnnlm
+rnnlm : rnnlmlib.o options.o rnnlm.o neuron.o
+	$(CC) $(CFLAGS) $(OPT_DEF) rnnlmlib.o options.o neuron.o rnnlm.o -o rnnlm
 
 clean:
 	rm -rf *.o rnnlm

@@ -2,11 +2,6 @@
 
 #define _OPTIONS_H_
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include "rnnlmlib.h"
-
 class Options {
 private:
 	int _argc;

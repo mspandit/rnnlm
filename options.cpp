@@ -1,3 +1,10 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "types.h"
+#include "neuron.h"
+#include "rnnlmlib.h"
 #include "options.h"
 
 Options::Options(int argc, char ** argv) {
