@@ -613,6 +613,12 @@ void Synapse::readWeight(FILE *fi) {
 	weight=fl;
 }
 
+void CRnnLM::layer_scan(Neuron neurons[], int layer_size, FILE *fi) {
+	for (int a = 0; a < layer_size; a++) {
+		neurons[a].scanActivation(fi);
+	}
+}
+
 void CRnnLM::restoreNet()    //will read whole network structure
 {
 	FILE *fi;
@@ -743,9 +749,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
     
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
-		for (a=0; a<layer1_size; a++) {
-			neu1[a].scanActivation(fi);
-		}
+		layer_scan(neu1, layer1_size, fi);
 	}
 	if (filetype==BINARY) {
 		fgetc(fi);

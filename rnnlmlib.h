@@ -375,6 +375,8 @@ public:
 	void layer_clear(Neuron [], int);
 	void layer_print(Neuron [], int, FILE *);
 	void layer_write(Neuron neurons[], int layer_size, FILE *fo);
+	void layer_read(Neuron neurons[], int layer_size, FILE *fo);
+	void layer_scan(Neuron neurons[], int layer_size, FILE *fo);
 };
 
 #endif
