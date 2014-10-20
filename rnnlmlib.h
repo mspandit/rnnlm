@@ -354,6 +354,8 @@ public:
 	void matrix_copy_matrix(Synapse [], Synapse [], int, int);
 	void matrix_print(Synapse [], int, int, FILE *);
 	void matrix_write(Synapse [], int, int, FILE *);
+	void matrix_scan(Synapse [], int, int, FILE *);
+	void matrix_read(Synapse [], int, int, FILE *);
 	
 	void randomizeWeights(Synapse *, int, int);
 	void sigmoidActivation(Neuron *, int);
@@ -375,6 +377,8 @@ public:
 	void layer_clear(Neuron [], int);
 	void layer_print(Neuron [], int, FILE *);
 	void layer_write(Neuron neurons[], int layer_size, FILE *fo);
+	void layer_scan(Neuron [], int, FILE *);
+	void layer_read(Neuron [], int, FILE *);
 };
 
 #endif
