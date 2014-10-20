@@ -437,7 +437,7 @@ void CRnnLM::layer_write(Neuron neurons[], int layer_size, FILE *fo) {
 }
 
 void CRnnLM::matrix_print(Synapse synapses[], int rows, int columns, FILE *fo) {
-	for (int b = 0; b < rows; b++) {
+	for (long long b = 0; b < rows; b++) {
 		for (int a = 0; a < columns; a++) {
 			synapses[a + b * columns].printWeight(fo);
 		}
@@ -445,7 +445,7 @@ void CRnnLM::matrix_print(Synapse synapses[], int rows, int columns, FILE *fo) {
 }
 
 void CRnnLM::matrix_write(Synapse synapses[], int rows, int columns, FILE *fo) {
-	for (int b = 0; b < rows; b++) {
+	for (long long b = 0; b < rows; b++) {
 		for (int a = 0; a < columns; a++) {
 			syn0[a + b * columns].writeWeight(fo);
 		}
@@ -455,7 +455,6 @@ void CRnnLM::matrix_write(Synapse synapses[], int rows, int columns, FILE *fo) {
 void CRnnLM::saveNet()       //will save the whole network structure                                                        
 {
 	FILE *fo;
-	int a, b;
 	char str[1000];
 	float fl;
     
@@ -503,7 +502,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	fprintf(fo, "\n");
 
 	fprintf(fo, "\nVocabulary:\n");
-	for (a=0; a<vocab_size; a++) fprintf(fo, "%6d\t%10d\t%s\t%d\n", a, vocab[a].cn, vocab[a].word, vocab[a].class_index);
+	for (int a=0; a<vocab_size; a++) fprintf(fo, "%6d\t%10d\t%s\t%d\n", a, vocab[a].cn, vocab[a].word, vocab[a].class_index);
 
     
 	if (filetype==TEXT) {
@@ -538,21 +537,12 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	}
 	if (filetype==BINARY) {
 		if (layerc_size>0) {
-			matrix_print(syn1, layerc_size, layer1_size, fo);
-    	
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layerc_size; a++) {
-					sync[a+b*layerc_size].writeWeight(fo);
-				}
-			}
+			matrix_write(syn1, layerc_size, layer1_size, fo);
+    		matrix_write(sync, layer2_size, layerc_size, fo);
 		}
 		else
 		{
-			for (a=0; a<layer1_size; a++) {
-				for (b=0; b<layer2_size; b++) {
-					syn1[a+b*layer1_size].writeWeight(fo);
-				}
-			}
+			matrix_write(syn1, layer1_size, layer2_size, fo);
 		}
 	}
 	////////
@@ -595,6 +585,11 @@ void Neuron::scanActivation(FILE *fi) {
 	ac = d;
 }
 
+void CRnnLM::layer_scan(Neuron neurons[], int layer_size, FILE *fi) {
+	for (int a = 0; a < layer_size; a++)
+		neurons[a].scanActivation(fi);
+}
+
 void Synapse::scanWeight(FILE *fi) {
 	double d;
 	fscanf(fi, "%lf", &d);
@@ -607,15 +602,31 @@ void Neuron::readActivation(FILE *fi) {
 	ac = fl;
 }
 
+void CRnnLM::layer_read(Neuron neurons[], int layer_size, FILE *fi) {
+	for (int a = 0; a < layer_size; a++) {
+		neurons[a].readActivation(fi);
+	}
+}
+
 void Synapse::readWeight(FILE *fi) {
 	float fl;
 	fread(&fl, sizeof(fl), 1, fi);
 	weight=fl;
 }
 
-void CRnnLM::layer_scan(Neuron neurons[], int layer_size, FILE *fi) {
-	for (int a = 0; a < layer_size; a++) {
-		neurons[a].scanActivation(fi);
+void CRnnLM::matrix_scan(Synapse synapses[], int rows, int columns, FILE *fi) {
+	for (int b = 0; b < rows; b++) {
+		for (int a = 0; a < columns; a++) {
+			synapses[a + b * columns].scanWeight(fi);
+		}
+	}
+}
+
+void CRnnLM::matrix_read(Synapse synapses[], int rows, int columns, FILE *fi) {
+	for (int b = 0; b < rows; b++) {
+		for (int a = 0; a < columns; a++) {
+			synapses[a + b * columns].readWeight(fi);
+		}
 	}
 }
 
@@ -753,80 +764,39 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	}
 	if (filetype==BINARY) {
 		fgetc(fi);
-		for (a=0; a<layer1_size; a++) {
-			neu1[a].readActivation(fi);
-		}
+		layer_read(neu1, layer1_size, fi);
 	}
 	//
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
-		for (b=0; b<layer1_size; b++) {
-			for (a=0; a<layer0_size; a++) {
-				syn0[a+b*layer0_size].scanWeight(fi);
-			}
-		}
+		matrix_scan(syn0, layer1_size, layer0_size, fi);
 	}
 	if (filetype==BINARY) {
-		for (b=0; b<layer1_size; b++) {
-			for (a=0; a<layer0_size; a++) {
-				syn0[a+b*layer0_size].readWeight(fi);
-			}
-		}
+		matrix_read(syn0, layer1_size, layer0_size, fi);
 	}
 	//
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
 		if (layerc_size==0) {	//no compress layer
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fscanf(fi, "%lf", &d);
-					syn1[a+b*layer1_size].weight=d;
-				}
-			}
+			matrix_scan(syn1, layer2_size, layer1_size, fi);
 		}
 		else
-		{				//with compress layer
-			for (b=0; b<layerc_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fscanf(fi, "%lf", &d);
-					syn1[a+b*layer1_size].weight=d;
-				}
-			}
-    	
+		{
+			matrix_scan(syn1, layerc_size, layer1_size, fi);
+			   	
 			goToDelimiter(':', fi);
-    	
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layerc_size; a++) {
-					fscanf(fi, "%lf", &d);
-					sync[a+b*layerc_size].weight=d;
-				}
-			}
+
+			matrix_scan(sync, layer2_size, layerc_size, fi);
 		}
 	}
 	if (filetype==BINARY) {
 		if (layerc_size==0) {	//no compress layer
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fread(&fl, sizeof(fl), 1, fi);
-					syn1[a+b*layer1_size].weight=fl;
-				}
-			}
+			matrix_read(syn1, layer2_size, layer1_size, fi);
 		}
 		else
 		{				//with compress layer
-			for (b=0; b<layerc_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					fread(&fl, sizeof(fl), 1, fi);
-					syn1[a+b*layer1_size].weight=fl;
-				}
-			}
-    	
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layerc_size; a++) {
-					fread(&fl, sizeof(fl), 1, fi);
-					sync[a+b*layerc_size].weight=fl;
-				}
-			}
+			matrix_read(syn1, layerc_size, layer1_size, fi);
+			matrix_read(sync, layer2_size, layerc_size, fi);
 		}
 	}
 	//
