@@ -28,10 +28,15 @@ public:
 		_neurons = NULL;
 		_size = 0;
 	}
-	
 	~Layer() {
-		free(_neurons);
+		if (_neurons != NULL) free(_neurons);
 	}
+	void copy(const Layer &);
+	void clearActivation();
+	void clearError();
+	void clear();
+	void print(FILE *);
+	void setActivation(real);
 };
 
 class CRnnLM{
@@ -100,24 +105,25 @@ protected:
     Layer layerc;		//neurons in hidden layer
     Layer layer2;		//neurons in output layer
 
+    //backup used in training:
+	Layer layer0b;
+	Layer layer1b;
+	Layer layercb;
+	Layer layer2b;
+    
+    //backup used in n-bset rescoring:
+   	Layer layer1b2;
+
     Synapse *syn0;		//weights between input and hidden layer
     Synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
     Synapse *sync;		//weights between hidden and compression layer
     direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     
-    //backup used in training:
-    Neuron *neu0b;
-    Neuron *neu1b;
-    Neuron *neucb;
-    Neuron *neu2b;
 
     Synapse *syn0b;
     Synapse *syn1b;
     Synapse *syncb;
     direct_t *syn_db;
-    
-    //backup used in n-bset rescoring:
-    Neuron *neu1b2;
     
     
 public:
@@ -176,15 +182,7 @@ public:
 	syn1=NULL;
 	sync=NULL;
 	syn_d=NULL;
-	syn_db=NULL;
-	//backup
-	neu0b=NULL;
-	neu1b=NULL;
-	neucb=NULL;
-	neu2b=NULL;
-	
-	neu1b2=NULL;
-	
+	syn_db=NULL;	
 	syn0b=NULL;
 	syn1b=NULL;
 	syncb=NULL;
@@ -217,12 +215,6 @@ public:
 	    if (syn_db!=NULL) free(syn_db);
 
 	    //
-	    free(neu0b);
-	    free(neu1b);
-	    if (neucb!=NULL) free(neucb);
-	    free(neu2b);
-
-	    free(neu1b2);
 	    
 	    free(syn0b);
 	    free(syn1b);
@@ -320,12 +312,6 @@ public:
     void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
 	
 	void layer2_clearActivation(Neuron *, int, int);
-	void layer_clearActivation(Neuron *, int);
-	void layer_setActivation(Neuron [], int, real);
-	void layer_clearError(Neuron *, int);
-	void layer_copy_layer(Neuron [], int, Neuron []);
-	void layer_clear(Neuron [], int);
-	void layer_print(Neuron [], int, FILE *);
 	void layer_write(Neuron neurons[], int layer_size, FILE *fo);
 	void layer_scan(Neuron [], int, FILE *);
 	void layer_read(Neuron [], int, FILE *);
