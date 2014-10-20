@@ -331,12 +331,9 @@ void CRnnLM::initialize()
 
 	randomizeWeights(syn0, layer0_size, layer1_size);
 
+	randomizeWeights(syn1, layer2_size, layer1_size);
 	if (layerc_size>0) {
-		randomizeWeights(syn1, layerc_size, layer1_size);
 		randomizeWeights(sync, layer2_size, layerc_size);
-	}
-	else {
-		randomizeWeights(syn1, layer2_size, layer1_size);
 	}
     
 	long long aa;
@@ -439,6 +436,22 @@ void CRnnLM::layer_write(Neuron neurons[], int layer_size, FILE *fo) {
 	}
 }
 
+void CRnnLM::matrix_print(Synapse synapses[], int rows, int columns, FILE *fo) {
+	for (int b = 0; b < rows; b++) {
+		for (int a = 0; a < columns; a++) {
+			synapses[a + b * columns].printWeight(fo);
+		}
+	}
+}
+
+void CRnnLM::matrix_write(Synapse synapses[], int rows, int columns, FILE *fo) {
+	for (int b = 0; b < rows; b++) {
+		for (int a = 0; a < columns; a++) {
+			syn0[a + b * columns].writeWeight(fo);
+		}
+	}
+}
+
 void CRnnLM::saveNet()       //will save the whole network structure                                                        
 {
 	FILE *fo;
@@ -503,53 +516,29 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	//////////
 	if (filetype==TEXT) {
 		fprintf(fo, "\nWeights 0->1:\n");
-		for (b=0; b<layer1_size; b++) {
-			for (a=0; a<layer0_size; a++) {
-				syn0[a+b*layer0_size].printWeight(fo);
-			}
-		}
+		matrix_print(syn0, layer1_size, layer0_size, fo);
 	}
 	if (filetype==BINARY) {
-		for (b=0; b<layer1_size; b++) {
-			for (a=0; a<layer0_size; a++) {
-				syn0[a+b*layer0_size].writeWeight(fo);
-			}
-		}
+		matrix_write(syn0, layer1_size, layer0_size, fo);
 	}
 	/////////
 	if (filetype==TEXT) {
 		if (layerc_size>0) {
 			fprintf(fo, "\n\nWeights 1->c:\n");
-			for (b=0; b<layerc_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					syn1[a+b*layer1_size].printWeight(fo);
-				}
-			}
+			matrix_print(syn1, layerc_size, layer1_size, fo);
     	
 			fprintf(fo, "\n\nWeights c->2:\n");
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layerc_size; a++) {
-					sync[a+b*layerc_size].printWeight(fo);
-				}
-			}
+			matrix_print(sync, layer2_size, layerc_size, fo);
 		}
 		else
 		{
 			fprintf(fo, "\n\nWeights 1->2:\n");
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					syn1[a+b*layer1_size].printWeight(fo);
-				}
-			}
+			matrix_print(syn1, layer2_size, layer1_size, fo);
 		}
 	}
 	if (filetype==BINARY) {
 		if (layerc_size>0) {
-			for (b=0; b<layerc_size; b++) {
-				for (a=0; a<layer1_size; a++) {
-					syn1[a+b*layer1_size].writeWeight(fo);
-				}
-			}
+			matrix_print(syn1, layerc_size, layer1_size, fo);
     	
 			for (b=0; b<layer2_size; b++) {
 				for (a=0; a<layerc_size; a++) {
@@ -559,8 +548,8 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		}
 		else
 		{
-			for (b=0; b<layer2_size; b++) {
-				for (a=0; a<layer1_size; a++) {
+			for (a=0; a<layer1_size; a++) {
+				for (b=0; b<layer2_size; b++) {
 					syn1[a+b*layer1_size].writeWeight(fo);
 				}
 			}

@@ -352,6 +352,8 @@ public:
 	void normalizeOutputClassActivation();
 	void layer2_normalizeActivation(int);
 	void matrix_copy_matrix(Synapse [], Synapse [], int, int);
+	void matrix_print(Synapse [], int, int, FILE *);
+	void matrix_write(Synapse [], int, int, FILE *);
 	
 	void randomizeWeights(Synapse *, int, int);
 	void sigmoidActivation(Neuron *, int);
