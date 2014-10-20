@@ -235,17 +235,17 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
 
 void CRnnLM::restoreWeights()      //restores current weights and unit activations from backup copy
 {
-	clearActivation(neu0, 0, layer0_size);
-	clearError(neu0, 0, layer0_size);
+	layer_clearActivation(neu0, layer0_size);
+	layer_clearError(neu0, layer0_size);
 
-	clearActivation(neu1, 0, layer1_size);
-	clearError(neu1, 0, layer1_size);
+	layer_clearActivation(neu1, layer1_size);
+	layer_clearError(neu1, layer1_size);
 
-	clearActivation(neuc, 0, layerc_size);
-	clearError(neuc, 0, layerc_size);
+	layer_clearActivation(neuc, layerc_size);
+	layer_clearError(neuc, layerc_size);
 
-	clearActivation(neu2, 0, layer2_size);
-	clearError(neu2, 0, layer2_size);
+	layer_clearActivation(neu2, layer2_size);
+	layer_clearError(neu2, layer2_size);
 
 	matrix_copy_matrix(syn0, syn0b, layer1_size, layer0_size);
     
@@ -317,17 +317,17 @@ void CRnnLM::initialize()
 		exit(1);
 	}
     
-	clearActivation(neu0, 0, layer0_size);
-	clearError(neu0, 0, layer0_size);
+	layer_clearActivation(neu0, layer0_size);
+	layer_clearError(neu0, layer0_size);
 
-	clearActivation(neu1, 0, layer1_size);
-	clearError(neu1, 0, layer1_size);
+	layer_clearActivation(neu1, layer1_size);
+	layer_clearError(neu1, layer1_size);
 
-	clearActivation(neuc, 0, layerc_size);
-	clearError(neuc, 0, layerc_size);
+	layer_clearActivation(neuc, layerc_size);
+	layer_clearError(neuc, layerc_size);
 
-	clearActivation(neu2, 0, layer2_size);
-	clearError(neu2, 0, layer2_size);
+	layer_clearActivation(neu2, layer2_size);
+	layer_clearError(neu2, layer2_size);
 
 	randomizeWeights(syn0, layer0_size, layer1_size);
 
@@ -829,16 +829,22 @@ void CRnnLM::layer_clear(Neuron neurons[], int layer_size) {
 	}
 }
 
+void CRnnLM::layer_setActivation(Neuron neurons[], int layer_size, real activation) {
+	for (int a = 0; a < layer_size; a++)
+		neurons[a].ac = 1.0;
+}
+
+void CRnnLM::inputLayer_clear(Neuron neurons[], int layer_size, int num_state_neurons) {
+	layer_clear(neurons, layer_size - num_state_neurons);
+	for (int a = layer_size - num_state_neurons; a < layer_size; a++) {   //last hidden layer is initialized to vector of 0.1 values to prevent unstability
+		neurons[a].ac=0.1;
+		neurons[a].er=0;
+	}
+}
+
 void CRnnLM::netFlush()   //cleans all activations and error vectors
 {
-	int a;
-
-	layer_clear(neu0, layer0_size - layer1_size);
-
-	for (a=layer0_size-layer1_size; a<layer0_size; a++) {   //last hidden layer is initialized to vector of 0.1 values to prevent unstability
-		neu0[a].ac=0.1;
-		neu0[a].er=0;
-	}
+	inputLayer_clear(neu0, layer0_size, layer1_size);
 
 	layer_clear(neu1, layer1_size);
     
@@ -851,9 +857,7 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 {
 	int a, b;
 
-	for (a=0; a<layer1_size; a++) {
-		neu1[a].ac=1.0;
-	}
+	layer_setActivation(neu1, layer1_size, 1.0);
 
 	copyHiddenLayerToInput();
 
@@ -977,15 +981,21 @@ void CRnnLM::randomizeWeights(Synapse *synapses, int src_size, int dest_size)
 			synapses[src_index + dest_index * src_size].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }
 
-void CRnnLM::clearActivation(Neuron *neurons, int first_neuron, int num_neurons)
+void CRnnLM::layer_clearActivation(Neuron neurons[], int layer_size)
+{
+	for (int neuron_index = 0; neuron_index < layer_size; neuron_index++) 
+		neurons[neuron_index].ac = 0;
+}
+
+void CRnnLM::layer2_clearActivation(Neuron neurons[], int first_neuron, int num_neurons)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
 		neurons[neuron_index].ac = 0;
 }
 
-void CRnnLM::clearError(Neuron *neurons, int first_neuron, int num_neurons)
+void CRnnLM::layer_clearError(Neuron *neurons, int layer_size)
 {
-	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
+	for (int neuron_index = 0; neuron_index < layer_size; neuron_index++) 
 		neurons[neuron_index].er = 0;
 }
 
@@ -1027,6 +1037,11 @@ void CRnnLM::clearClassActivation(int word)
 		neu2[class_words[vocab[word].class_index][c]].ac = 0;
 }
 
+void CRnnLM::layer_receiveActivation(Neuron dest[], int dest_size, Neuron src[], int src_size, int src_index, Synapse matrix[]) {
+	for (int index = 0; index < dest_size; index++)
+		dest[index].ac += src[src_index].ac * matrix[src_index + index * src_size].weight;
+}
+
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
@@ -1034,16 +1049,15 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	if (last_word!=-1) neu0[last_word].ac=1;
 
 	//propagate 0->1
-	clearActivation(neu1, 0, layer1_size);
-	clearActivation(neuc, 0, layerc_size);
+	layer_clearActivation(neu1, layer1_size);
+	layer_clearActivation(neuc, layerc_size);
     
 	// Propagate activation of prior hidden layer into current hidden layer
 	matrixXvector(neu1, neu0, syn0, layer0_size, 0, layer1_size, layer0_size-layer1_size, layer0_size, 0);
 
 	// Propagate activation of last word into new hidden layer
 	if (last_word != -1)
-		for (int layer1_index = 0; layer1_index < layer1_size; layer1_index++)
-			neu1[layer1_index].ac += neu0[last_word].ac * syn0[last_word + layer1_index * layer0_size].weight;
+		layer_receiveActivation(neu1, layer1_size, neu0, layer0_size, last_word, syn0);
 
 	//activate 1      --sigmoid
     sigmoidActivation(neu1, layer1_size);
@@ -1054,7 +1068,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	}
         
 	//1->2 class
-	clearActivation(neu2, vocab_size, layer2_size);
+	layer2_clearActivation(neu2, vocab_size, layer2_size);
     
 	if (layerc_size>0) {
 		// Propagate activation of compression layer into output layer
@@ -1176,8 +1190,8 @@ void CRnnLM::learn(int last_word, int word)
 	computeErrorVectors(word);
 
 	//flush error
-	clearError(neu1, 0, layer1_size);
-	clearError(neuc, 0, layerc_size);
+	layer_clearError(neu1, layer1_size);
+	layer_clearError(neuc, layerc_size);
     
 	if (direct_size > 0) {	//learn direct connections between words
 		if (word != -1) {

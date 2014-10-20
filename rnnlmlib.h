@@ -371,14 +371,18 @@ public:
     void slowMatrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);    
     void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
 	
-	void clearActivation(Neuron *, int, int);
-	void clearError(Neuron *, int, int);
+	void layer2_clearActivation(Neuron *, int, int);
+	void layer_clearActivation(Neuron *, int);
+	void layer_setActivation(Neuron [], int, real);
+	void layer_clearError(Neuron *, int);
 	void layer_copy_layer(Neuron [], int, Neuron []);
 	void layer_clear(Neuron [], int);
 	void layer_print(Neuron [], int, FILE *);
 	void layer_write(Neuron neurons[], int layer_size, FILE *fo);
 	void layer_scan(Neuron [], int, FILE *);
 	void layer_read(Neuron [], int, FILE *);
+	void layer_receiveActivation(Neuron [], int, Neuron [], int, int, Synapse []);
+	void inputLayer_clear(Neuron [], int, int);
 };
 
 #endif
