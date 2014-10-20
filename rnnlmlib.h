@@ -12,12 +12,15 @@
 
 #define MAX_STRING 100
 
-struct vocab_word {
+class Word {
+public:
     int cn;
     char word[MAX_STRING];
 
     real prob;
     int class_index;
+	
+	void set(char *);
 };
 
 const unsigned int PRIMES[]={108641969, 116049371, 125925907, 133333309, 145678979, 175308587, 197530793, 234567803, 251851741, 264197411, 330864029, 399999781,
@@ -56,8 +59,23 @@ protected:
     double logp, llogp;
     float min_improvement;
     int iter;
+
+    Word *vocab;
+    int *vocab_hash;
+    int vocab_hash_size;
     int vocab_max_size;
     int vocab_size;
+    void vocab_sort();
+    int vocab_search(char *word);
+    int vocab_add(char *word);
+    int vocab_getHash(char *word);
+	void vocab_clear();
+    void vocab_learnFromTrainFile();		//train_file will be used to construct vocabulary
+	void vocab_setClassIndexOld();
+	void vocab_setClassIndexNew();
+	void vocab_print(FILE *);
+	void vocab_scan(FILE *);
+	
     int train_words;
     int train_cur_pos;
     int counter;
@@ -74,10 +92,6 @@ protected:
     int *class_max_cn;
     int old_classes;
     
-    struct vocab_word *vocab;
-    void sortVocab();
-    int *vocab_hash;
-    int vocab_hash_size;
     
     int layer0_size;
     int layer1_size;
@@ -157,9 +171,12 @@ public:
 	
 	train_words=0;
 	train_cur_pos=0;
+
 	vocab_max_size=100;
 	vocab_size=0;
-	vocab=(struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));
+	vocab=(Word *)calloc(vocab_max_size, sizeof(Word));
+	vocab_hash_size=100000000;
+	vocab_hash=(int *)calloc(vocab_hash_size, sizeof(int));
 	
 	layer1_size=30;
 	
@@ -210,8 +227,6 @@ public:
 	debug_mode=1;
 	srand(rand_seed);
 	
-	vocab_hash_size=100000000;
-	vocab_hash=(int *)calloc(vocab_hash_size, sizeof(int));
     }
     
     ~CRnnLM()		//destructor, deallocates memory
@@ -294,12 +309,9 @@ public:
     void setOneIter(int newOneIter) {one_iter=newOneIter;}
     void setMaxIter(int newMaxIter) {maxIter=newMaxIter;}
     
-    int getWordHash(char *word);
     void readWord(char *word, FILE *fin);
-    int searchVocab(char *word);
+
     int readWordIndex(FILE *fin);
-    int addWordToVocab(char *word);
-    void learnVocabFromTrainFile();		//train_file will be used to construct vocabulary
     
     void saveWeights();			//saves current weights and unit activations
     void restoreWeights();		//restores current weights and unit activations from backup copy

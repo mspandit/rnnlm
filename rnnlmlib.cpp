@@ -89,23 +89,23 @@ void CRnnLM::readWord(char *word, FILE *fin)
 	word[a]=0;
 }
 
-int CRnnLM::getWordHash(char *word)
+int CRnnLM::vocab_getHash(char *word)
 {
 	unsigned int hash, a;
     
 	hash=0;
 	for (a=0; a<strlen(word); a++) hash=hash*237+word[a];
-	hash=hash%vocab_hash_size;
+	hash = hash % vocab_hash_size;
     
 	return hash;
 }
 
-int CRnnLM::searchVocab(char *word)
+int CRnnLM::vocab_search(char *word)
 {
 	int a;
 	unsigned int hash;
     
-	hash=getWordHash(word);
+	hash=vocab_getHash(word);
     
 	if (vocab_hash[hash]==-1) return -1;
 	if (!strcmp(word, vocab[vocab_hash[hash]].word)) return vocab_hash[hash];
@@ -127,32 +127,35 @@ int CRnnLM::readWordIndex(FILE *fin)
 	readWord(word, fin);
 	if (feof(fin)) return -1;
 
-	return searchVocab(word);
+	return vocab_search(word);
 }
 
-int CRnnLM::addWordToVocab(char *word)
+void Word::set(char *the_word) {
+	strcpy(word, the_word);
+	cn = 0;
+}
+
+int CRnnLM::vocab_add(char *word)
 {
 	unsigned int hash;
-    
-	strcpy(vocab[vocab_size].word, word);
-	vocab[vocab_size].cn=0;
-	vocab_size++;
+
+	vocab[vocab_size++].set(word);
 
 	if (vocab_size+2>=vocab_max_size) {        //reallocate memory if needed
 		vocab_max_size+=100;
-		vocab=(struct vocab_word *)realloc(vocab, vocab_max_size * sizeof(struct vocab_word));
+		vocab=(Word *)realloc(vocab, vocab_max_size * sizeof(Word));
 	}
     
-	hash=getWordHash(word);
+	hash=vocab_getHash(word);
 	vocab_hash[hash]=vocab_size-1;
 
 	return vocab_size-1;
 }
 
-void CRnnLM::sortVocab()
+void CRnnLM::vocab_sort()
 {
 	int a, b, max;
-	vocab_word swap;
+	Word swap;
     
 	for (a=1; a<vocab_size; a++) {
 		max=a;
@@ -164,19 +167,20 @@ void CRnnLM::sortVocab()
 	}
 }
 
-void CRnnLM::learnVocabFromTrainFile()    //assumes that vocabulary is empty
+void CRnnLM::vocab_clear() {
+	for (int a = 0; a < vocab_hash_size; a++) vocab_hash[a]=-1;
+	vocab_size=0;	
+}
+
+void CRnnLM::vocab_learnFromTrainFile()    //assumes that vocabulary is empty
 {
 	char word[MAX_STRING];
 	FILE *fin;
 	int a, i, train_wcn;
-    
-	for (a=0; a<vocab_hash_size; a++) vocab_hash[a]=-1;
 
 	fin=fopen(train_file, "rb");
-
-	vocab_size=0;
-
-	addWordToVocab((char *)"</s>");
+	
+	vocab_add((char *)"</s>");
 
 	train_wcn=0;
 	while (1) {
@@ -185,14 +189,14 @@ void CRnnLM::learnVocabFromTrainFile()    //assumes that vocabulary is empty
         
 		train_wcn++;
 
-		i=searchVocab(word);
+		i=vocab_search(word);
 		if (i==-1) {
-			a=addWordToVocab(word);
+			a=vocab_add(word);
 			vocab[a].cn=1;
 		} else vocab[i].cn++;
 	}
 
-	sortVocab();
+	vocab_sort();
 
 	if (debug_mode>0) {
 		printf("Vocab size: %d\n", vocab_size);
@@ -250,6 +254,52 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 	matrix_copy_matrix(syn1, syn1b, layerc_size, layer1_size);
 	if (layerc_size>0) {
 		matrix_copy_matrix(sync, syncb, layer2_size, layerc_size);
+	}
+}
+
+void CRnnLM::vocab_setClassIndexOld() {
+	int b = 0;
+	int a = 0;
+	double df = 0;
+	
+	for (int i = 0; i < vocab_size; i++)
+		b += vocab[i].cn;
+
+	for (int i = 0; i < vocab_size; i++) {
+		df += vocab[i].cn / (double)b;
+		if (df > 1) df = 1;
+		if (df > (a + 1) / (double)class_size) {
+			vocab[i].class_index = a;
+			if (a < class_size - 1)
+				a++;
+		} else {
+			vocab[i].class_index = a;
+		}
+	}
+}
+
+void CRnnLM::vocab_setClassIndexNew() {
+	int b = 0;
+	int a = 0;
+	double dd = 0;
+	double df = 0;
+
+	for (int i = 0; i < vocab_size; i++)
+		b += vocab[i].cn;
+	
+	for (int i = 0; i < vocab_size; i++)
+		dd += sqrt(vocab[i].cn / (double)b);
+
+	for (int i = 0; i < vocab_size; i++) {
+		df += sqrt(vocab[i].cn / (double)b) / dd;
+		if (df > 1) df=1;
+		if (df > (a + 1) / (double)class_size) {
+			vocab[i].class_index = a;
+			if (a < class_size - 1) 
+				a++;
+		} else {
+			vocab[i].class_index = a;
+		}
 	}
 }
 
@@ -358,30 +408,9 @@ void CRnnLM::initialize()
 	b=0;
 
 	if (old_classes) {  	// old classes
-		for (i=0; i<vocab_size; i++) b+=vocab[i].cn;
-		for (i=0; i<vocab_size; i++) {
-			df+=vocab[i].cn/(double)b;
-			if (df>1) df=1;
-			if (df>(a+1)/(double)class_size) {
-				vocab[i].class_index=a;
-				if (a<class_size-1) a++;
-			} else {
-				vocab[i].class_index=a;
-			}
-		}
+		vocab_setClassIndexOld();
 	} else {			// new classes
-		for (i=0; i<vocab_size; i++) b+=vocab[i].cn;
-		for (i=0; i<vocab_size; i++) dd+=sqrt(vocab[i].cn/(double)b);
-		for (i=0; i<vocab_size; i++) {
-			df+=sqrt(vocab[i].cn/(double)b)/dd;
-			if (df>1) df=1;
-			if (df>(a+1)/(double)class_size) {
-				vocab[i].class_index=a;
-				if (a<class_size-1) a++;
-			} else {
-				vocab[i].class_index=a;
-			}
-		}
+		vocab_setClassIndexNew();
 	}
     
 	//allocate auxiliary class variables (for faster search when normalizing probability at output layer)
@@ -435,6 +464,11 @@ void CRnnLM::matrix_write(Synapse synapses[], int rows, int columns, FILE *fo) {
 	}
 }
 
+void CRnnLM::vocab_print(FILE *fo) {
+	for (int a = 0; a < vocab_size; a++) 
+		fprintf(fo, "%6d\t%10d\t%s\t%d\n", a, vocab[a].cn, vocab[a].word, vocab[a].class_index);
+}
+
 void CRnnLM::saveNet()       //will save the whole network structure                                                        
 {
 	FILE *fo;
@@ -485,7 +519,7 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	fprintf(fo, "\n");
 
 	fprintf(fo, "\nVocabulary:\n");
-	for (int a=0; a<vocab_size; a++) fprintf(fo, "%6d\t%10d\t%s\t%d\n", a, vocab[a].cn, vocab[a].word, vocab[a].class_index);
+	vocab_print(fo);
 
     
 	if (filetype==TEXT) {
@@ -589,10 +623,20 @@ void CRnnLM::matrix_read(Synapse synapses[], int rows, int columns, FILE *fi) {
 	}
 }
 
+void CRnnLM::vocab_scan(FILE *fi) {
+	int b;
+	
+	for (int a = 0; a < vocab_size; a++) {
+		fscanf(fi, "%d%d", &b, &vocab[a].cn);
+		readWord(vocab[a].word, fi);
+		fscanf(fi, "%d", &vocab[a].class_index);
+	}
+}
+
 void CRnnLM::restoreNet()    //will read whole network structure
 {
 	FILE *fi;
-	int a, b, ver;
+	int ver;
 	float fl;
 	char str[MAX_STRING];
 	double d;
@@ -701,17 +745,11 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	if (vocab_max_size<vocab_size) {
 		if (vocab!=NULL) free(vocab);
 		vocab_max_size=vocab_size+1000;
-		vocab=(struct vocab_word *)calloc(vocab_max_size, sizeof(struct vocab_word));    //initialize memory for vocabulary
+		vocab=(Word *)calloc(vocab_max_size, sizeof(Word));    //initialize memory for vocabulary
 	}
 	//
 	goToDelimiter(':', fi);
-	for (a=0; a<vocab_size; a++) {
-		//fscanf(fi, "%d%d%s%d", &b, &vocab[a].cn, vocab[a].word, &vocab[a].class_index);
-		fscanf(fi, "%d%d", &b, &vocab[a].cn);
-		readWord(vocab[a].word, fi);
-		fscanf(fi, "%d", &vocab[a].class_index);
-		//printf("%d  %d  %s  %d\n", b, vocab[a].cn, vocab[a].word, vocab[a].class_index);
-	}
+	vocab_scan(fi);
 	//
 	if (neu0==NULL) initialize();		//memory allocation here
 	//
@@ -1364,7 +1402,7 @@ void CRnnLM::trainNet()
 		printf("Restoring network from file to continue training...\n");
 		restoreNet();
 	} else {
-		learnVocabFromTrainFile();
+		vocab_learnFromTrainFile();
 		initialize();
 		iter=0;
 	}
@@ -1416,7 +1454,7 @@ void CRnnLM::trainNet()
 			if (word!=-1) logp += log10(neu2[vocab_size + vocab[word].class_index].ac * neu2[word].ac);
     	    
 			if ((logp != logp) || (isinf(logp))) {
-				printf("\nNumerical error %d %f %f\n", word, neu2[word].ac, neu2[vocab[word].class_index+vocab_size].ac);
+				printf("\nNumerical error %d %f %f\n", word, neu2[word].ac, neu2[vocab[word].class_index + vocab_size].ac);
 				exit(1);
 			}
 
