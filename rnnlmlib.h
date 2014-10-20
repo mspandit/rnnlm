@@ -19,6 +19,16 @@ const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 
+class Layer {
+public:
+	Neuron *_neurons;
+	int _size;
+	
+	~Layer() {
+		free(_neurons);
+	}
+};
+
 class CRnnLM{
 protected:
     char train_file[MAX_STRING];
@@ -64,12 +74,7 @@ protected:
     int *class_word_count;
     int *class_max_cn;
     int old_classes;
-    
-    
-    int layer0_size;
-    int layer1_size;
-    int layerc_size;
-    int layer2_size;
+
     
     long long direct_size;
     int direct_order;
@@ -85,10 +90,13 @@ protected:
 
     int independent;
     
-    Neuron *neu0;		//neurons in input layer
+    Layer layer0;		//neurons in input layer
     Neuron *neu1;		//neurons in hidden layer
     Neuron *neuc;		//neurons in hidden layer
     Neuron *neu2;		//neurons in output layer
+    int layer1_size;
+    int layerc_size;
+    int layer2_size;
 
     Synapse *syn0;		//weights between input and hidden layer
     Synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
@@ -162,7 +170,7 @@ public:
 
 	independent=0;
 	
-	neu0=NULL;
+	layer0._neurons = NULL;
 	neu1=NULL;
 	neuc=NULL;
 	neu2=NULL;
@@ -202,8 +210,7 @@ public:
     {
 	int i;
 	
-	if (neu0!=NULL) {
-	    free(neu0);
+	if (layer0._neurons != NULL) {
 	    free(neu1);
 	    if (neuc!=NULL) free(neuc);
 	    free(neu2);
