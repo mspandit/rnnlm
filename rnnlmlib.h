@@ -23,6 +23,11 @@ class Layer {
 public:
 	Neuron *_neurons;
 	int _size;
+
+	Layer() {
+		_neurons = NULL;
+		_size = 0;
+	}
 	
 	~Layer() {
 		free(_neurons);
@@ -91,12 +96,9 @@ protected:
     int independent;
     
     Layer layer0;		//neurons in input layer
-    Neuron *neu1;		//neurons in hidden layer
-    Neuron *neuc;		//neurons in hidden layer
-    Neuron *neu2;		//neurons in output layer
-    int layer1_size;
-    int layerc_size;
-    int layer2_size;
+    Layer layer1;		//neurons in hidden layer
+    Layer layerc;		//neurons in hidden layer
+    Layer layer2;		//neurons in output layer
 
     Synapse *syn0;		//weights between input and hidden layer
     Synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
@@ -155,7 +157,7 @@ public:
 
 	vocab.initialize(100, 0, 100000000);
 	
-	layer1_size=30;
+	layer1._size=30;
 	
 	direct_size=0;
 	direct_order=0;
@@ -169,11 +171,6 @@ public:
 	gen=0;
 
 	independent=0;
-	
-	layer0._neurons = NULL;
-	neu1=NULL;
-	neuc=NULL;
-	neu2=NULL;
 	
 	syn0=NULL;
 	syn1=NULL;
@@ -210,11 +207,7 @@ public:
     {
 	int i;
 	
-	if (layer0._neurons != NULL) {
-	    free(neu1);
-	    if (neuc!=NULL) free(neuc);
-	    free(neu2);
-	    
+	if (layer0._neurons != NULL) {	    
 	    free(syn0);
 	    free(syn1);
 	    if (sync!=NULL) free(sync);
@@ -270,8 +263,8 @@ public:
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
     void setRegularization(real newBeta) {beta=newBeta;}
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
-    void setHiddenLayerSize(int newsize) {layer1_size=newsize;}
-    void setCompressionLayerSize(int newsize) {layerc_size=newsize;}
+    void setHiddenLayerSize(int newsize) {layer1._size=newsize;}
+    void setCompressionLayerSize(int newsize) {layerc._size=newsize;}
     void setDirectSize(long long newsize) {direct_size=newsize;}
     void setDirectOrder(int newsize) {direct_order=newsize;}
     void setBPTT(int newval) {bptt=newval;}
