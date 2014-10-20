@@ -351,11 +351,7 @@ public:
 	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
 	void layer2_normalizeActivation(int);
-	void matrix0b_copy_matrix0();
-	void matrix1b_copy_matrix1();
-	void matrixcb_copy_matrixc();
-	void clearActivation(Neuron *, int, int);
-	void clearError(Neuron *, int, int);
+	void matrix_copy_matrix(Synapse [], Synapse [], int, int);
 	
 	void randomizeWeights(Synapse *, int, int);
 	void sigmoidActivation(Neuron *, int);
@@ -371,14 +367,12 @@ public:
     void slowMatrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);    
     void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
 	
-	void layer_copy_layer(Neuron [], Neuron []);
-	void layer1b_copy_layer1();
-	void layercb_copy_layerc();
-	void layer2b_copy_layer2();
-	void layer0_clear();
-	void layer1_clear();
-	void layerc_clear();
-	void layer2_clear();
+	void clearActivation(Neuron *, int, int);
+	void clearError(Neuron *, int, int);
+	void layer_copy_layer(Neuron [], int, Neuron []);
+	void layer_clear(Neuron [], int);
+	void layer_print(Neuron [], int, FILE *);
+	void layer_write(Neuron neurons[], int layer_size, FILE *fo);
 };
 
 #endif
