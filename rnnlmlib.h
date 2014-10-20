@@ -11,16 +11,6 @@
 #define _RNNLMLIB_H_
 
 #define MAX_STRING 100
-                
-class Synapse {
-public:
-    real weight;	//weight of synapse
-	
-	void printWeight(FILE *);
-	void writeWeight(FILE *);
-	void readWeight(FILE *);
-	void scanWeight(FILE *);
-};
 
 struct vocab_word {
     int cn;

@@ -16,6 +16,7 @@
 #include "fastexp.h"
 #include "types.h"
 #include "neuron.h"
+#include "synapse.h"
 #include "rnnlmlib.h"
 
 ///// include blas
@@ -406,15 +407,6 @@ void CRnnLM::initialize()
 	}
 }
 
-void Synapse::printWeight(FILE *fo) {
-	fprintf(fo, "%.4f\n", weight);
-}
-
-void Synapse::writeWeight(FILE *fo) {
-	float fl = weight;
-	fwrite(&fl, sizeof(fl), 1, fo);
-}
-
 void CRnnLM::layer_print(Neuron neurons[], int layer_size, FILE *fo) {
 	for (int a = 0; a < layer_size; a++) 
 		fprintf(fo, "%.4f\n", neurons[a].ac);
@@ -575,22 +567,10 @@ void CRnnLM::layer_scan(Neuron neurons[], int layer_size, FILE *fi) {
 		neurons[a].scanActivation(fi);
 }
 
-void Synapse::scanWeight(FILE *fi) {
-	double d;
-	fscanf(fi, "%lf", &d);
-	weight=d;
-}
-
 void CRnnLM::layer_read(Neuron neurons[], int layer_size, FILE *fi) {
 	for (int a = 0; a < layer_size; a++) {
 		neurons[a].readActivation(fi);
 	}
-}
-
-void Synapse::readWeight(FILE *fi) {
-	float fl;
-	fread(&fl, sizeof(fl), 1, fi);
-	weight=fl;
 }
 
 void CRnnLM::matrix_scan(Synapse synapses[], int rows, int columns, FILE *fi) {
