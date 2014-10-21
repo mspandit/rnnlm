@@ -30,8 +30,6 @@ extern "C" {
 #endif
 //
 
-extern real random(real, real);
-
 void CRnnLM::setTrainFile(char *str)
 {
 	strcpy(train_file, str);
@@ -1509,7 +1507,7 @@ void CRnnLM::testGen()
 	while (wordcn<gen) {
 		computeProbDist(last_word, 0);		//compute probability distribution
         
-		f=random(0, 1);
+		f = Matrix::random(0, 1);
 		g=0;
 		i=vocab._size;
 		while ((g<f) && (i<layer2._size)) {
@@ -1572,7 +1570,7 @@ void CRnnLM::testGen()
 		}
 		//
 	
-		f=random(0, 1);
+		f = Matrix::random(0, 1);
 		g=0;
 		/*i=0;
 		while ((g<f) && (i<vocab._size)) {

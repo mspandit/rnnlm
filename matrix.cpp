@@ -50,7 +50,8 @@ void Matrix::read(FILE *fi) {
 	}
 }
 
-real random(real min, real max)
+/* static */
+real Matrix::random(real min, real max)
 {
 	return rand()/(real)RAND_MAX*(max-min)+min;
 }

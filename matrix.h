@@ -21,6 +21,7 @@ public:
 	void print(FILE *);
 	void read(FILE *);
 	void scan(FILE *);
+	static real random(real, real);
 	void randomize();
 };
 
