@@ -100,3 +100,10 @@ double Layer::sumSigmoid(const WordClass &wordClass, const Word &word, real maxA
 	}
 	return sum;
 }
+
+void Layer::setSigmoidActivation(const WordClass &wordClass, const Word &word, real maxAc, double sum) {
+	for (int c = 0; c < wordClass._word_count[word.class_index]; c++) {
+		int a = wordClass._words[word.class_index][c];
+		_neurons[a].ac=fasterexp(_neurons[a].ac-maxAc)/sum; //this prevents the need to check for overflow
+	}
+}

@@ -640,14 +640,9 @@ void CRnnLM::normalizeOutputClassActivation()
 
 void CRnnLM::layer2_normalizeActivation(int word)
 {
-	int a;
-	
 	real maxAc = layer2.maxActivation(wordClass, vocab._words[word]);
 	double sum = layer2.sumSigmoid(wordClass, vocab._words[word], maxAc);
-	for (int c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
-		a = wordClass._words[vocab._words[word].class_index][c];
-		layer2._neurons[a].ac=fasterexp(layer2._neurons[a].ac-maxAc)/sum; //this prevents the need to check for overflow
-	}
+	layer2.setSigmoidActivation(wordClass, vocab._words[word], maxAc, sum);
 }
 
 void CRnnLM::clearClassActivation(int word)
