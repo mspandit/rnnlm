@@ -71,10 +71,10 @@ void Layer::receiveActivation(Layer &src, int src_index, Synapse matrix[]) {
 		_neurons[index].ac += src._neurons[src_index].ac * matrix[src_index + index * src._size].weight;
 }
 
-void Layer::sigmoidActivation()
+void Layer::applySigmoid()
 {
 	for (int layer_index = 0; layer_index < _size; layer_index++) 
-		_neurons[layer_index].sigmoidActivation();
+		_neurons[layer_index].applySigmoid();
 }
 
 void Layer::deriveError() {
@@ -109,4 +109,22 @@ void Layer::setSigmoidActivation(const WordClass &wordClass, const Word &word) {
 		int a = wordClass._words[word.class_index][c];
 		_neurons[a].ac=fasterexp(_neurons[a].ac-maxAc)/sum; //this prevents the need to check for overflow
 	}
+}
+
+void Layer::normalizeActivation(int vocab_size) {
+	double sum = 0.0;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
+	real max = -FLT_MAX;
+	for (int layer2_index = vocab_size; layer2_index < _size; layer2_index++)
+		if (_neurons[layer2_index].ac > max) max = _neurons[layer2_index].ac; //this prevents the need to check for overflow
+	for (int layer2_index = vocab_size; layer2_index < _size; layer2_index++)
+		sum += fasterexp(_neurons[layer2_index].ac - max);
+
+	for (int layer2_index = vocab_size; layer2_index < _size; layer2_index++)
+		_neurons[layer2_index].ac = fasterexp(_neurons[layer2_index].ac - max) / sum;
+}
+
+void Layer::clearActivationRange(int first_neuron, int num_neurons)
+{
+	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
+		_neurons[neuron_index].ac = 0;
 }

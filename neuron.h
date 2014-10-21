@@ -11,7 +11,7 @@ public:
 	void clear();
 	void scanActivation(FILE *);
 	void readActivation(FILE *);
-	void sigmoidActivation();
+	void applySigmoid();
 };
 
 #endif

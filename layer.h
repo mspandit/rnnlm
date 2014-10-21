@@ -17,6 +17,7 @@ public:
 	void initialize(int);
 	void copy(const Layer &);
 	void clearActivation();
+	void clearActivationRange(int, int);
 	void clearError();
 	void clear();
 	void print(FILE *);
@@ -25,11 +26,12 @@ public:
 	void read(FILE *);
 	void setActivation(real);
 	void receiveActivation(Layer &, int, Synapse []);
-	void sigmoidActivation();
+	void applySigmoid();
 	void deriveError();
 	real maxActivation(const WordClass &, const Word &);
 	double sumSigmoid(const WordClass &, const Word &, real);
 	void setSigmoidActivation(const WordClass &, const Word &);
+	void normalizeActivation(int);
 };
 
 #endif

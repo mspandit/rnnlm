@@ -90,27 +90,6 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 	}
 }
 
-void WordClass::initialize(const Vocabulary &vocab) {
-	_words=(int **)calloc(_size, sizeof(int *));
-	_word_count=(int *)calloc(_size, sizeof(int));
-	_max_cn=(int *)calloc(_size, sizeof(int));
-    
-	for (int i = 0; i < _size; i++) {
-		_word_count[i] = 0;
-		_max_cn[i] = 10;
-		_words[i] = (int *)calloc(_max_cn[i], sizeof(int));
-	}
-    
-	for (int i = 0; i < vocab._size; i++) {
-		int cl = vocab._words[i].class_index;
-		_words[cl][_word_count[cl]++] = i;
-		if (_word_count[cl] + 2 >= _max_cn[cl]) {
-			_max_cn[cl] += 10;
-			_words[cl] = (int *)realloc(_words[cl], _max_cn[cl] * sizeof(int));
-		}
-	}
-}
-
 void CRnnLM::initialize()
 {
 	layer0.initialize(vocab._size + layer1._size);
@@ -619,30 +598,6 @@ void CRnnLM::slowMatrixXvector(
 	}
 }
 
-void CRnnLM::layer2_clearActivation(Neuron neurons[], int first_neuron, int num_neurons)
-{
-	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
-		neurons[neuron_index].ac = 0;
-}
-
-void CRnnLM::normalizeOutputClassActivation()
-{
-	double sum = 0.0;   //sum is used for normalization: it's better to have larger precision as many numbers are summed together here
-	real max = -FLT_MAX;
-	for (int layer2_index = vocab._size; layer2_index < layer2._size; layer2_index++)
-		if (layer2._neurons[layer2_index].ac > max) max = layer2._neurons[layer2_index].ac; //this prevents the need to check for overflow
-	for (int layer2_index = vocab._size; layer2_index < layer2._size; layer2_index++)
-		sum += fasterexp(layer2._neurons[layer2_index].ac - max);
-
-	for (int layer2_index = vocab._size; layer2_index < layer2._size; layer2_index++)
-		layer2._neurons[layer2_index].ac = fasterexp(layer2._neurons[layer2_index].ac - max) / sum; 
-}
-
-void CRnnLM::layer2_normalizeActivation(int word)
-{
-	layer2.setSigmoidActivation(wordClass, vocab._words[word]);
-}
-
 void CRnnLM::clearClassActivation(int word)
 {
 	for (int c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++)
@@ -652,31 +607,42 @@ void CRnnLM::clearClassActivation(int word)
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
-    
-	if (last_word!=-1) layer0._neurons[last_word].ac=1;
 
-	//propagate 0->1
 	layer1.clearActivation();
 	layerc.clearActivation();
+	layer2.clearActivationRange(vocab._size, layer2._size);
     
-	// Propagate activation of prior-hidden-layer portion of input layer into current hidden layer
-	matrixXvector(layer1, layer0, matrix01, matrix01._rows, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
+	//propagate 0->1
+    
+	matrixXvector( // Propagate activation
+		layer1, // to current hidden layer
+		layer0, // from input layer
+		matrix01, // using weight matrix
+		matrix01._rows,
+		0, 
+		layer1._size, // full hidden layer
+		layer0._size - layer1._size,  
+		layer0._size, // portion storing prior hidden layer
+		0
+	);
 
-	// Propagate activation of last word into current hidden layer
-	if (last_word != -1)
+	// Propagate activation of last word (only) into current hidden layer
+	if (last_word != -1) {
+		layer0._neurons[last_word].ac = 1;
 		layer1.receiveActivation(layer0, last_word, matrix01._synapses);
-
+	}
+	
 	//activate 1      --sigmoid
-    layer1.sigmoidActivation();
+    layer1.applySigmoid();
+	
 	if (layerc._size>0) {
 		// Propagate activation of current hidden layer into current compression layer
 		matrixXvector(layerc, layer1, matrix12, matrix12._rows, 0, layerc._size, 0, layer1._size, 0);
 		//activate compression      --sigmoid
-		layerc.sigmoidActivation();
+		layerc.applySigmoid();
 	}
         
 	//1->2 class
-	layer2_clearActivation(layer2._neurons, vocab._size, layer2._size);
     
 	if (layerc._size>0) {
 		// Propagate activation of compression layer into class portion of output layer
@@ -691,48 +657,45 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	//apply direct connections to classes
 	if (direct_size>0) {
 		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to syn_d that contains hash parameters
-	
-		for (a=0; a<direct_order; a++) hash[a]=0;
-	
+		for (a=0; a<direct_order; a++) hash[a] = 0;
 		for (a=0; a<direct_order; a++) {
 			b=0;
-			if (a>0) if (history[a-1]==-1) break;	//if OOV was in history, do not use this N-gram feature and higher orders
-			hash[a]=PRIMES[0]*PRIMES[1];
+			if ((a > 0) && (history[a - 1] == -1)) 
+				break;	//if OOV was in history, do not use this N-gram feature and higher orders
+			hash[a] = PRIMES[0] * PRIMES[1];
 	    	    
-			for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);	//update hash value based on words from the history
-			hash[a]=hash[a]%(direct_size/2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
+			for (b = 1; b <= a; b++) hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);	//update hash value based on words from the history
+			hash[a] = hash[a] % (direct_size / 2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
 		}
 	
-		for (b=0; b<direct_order; b++) 
-			for (a=vocab._size; a<layer2._size; a++) {
+		for (a = vocab._size; a < layer2._size; a++) {
+			for (b = 0; b < direct_order; b++) 
 				if (hash[b]) {
-					layer2._neurons[a].ac+=syn_d[hash[b]];		//apply current parameter and move to the next one
+					layer2._neurons[a].ac += syn_d[hash[b]];		//apply current parameter and move to the next one
 					hash[b]++;
-				} else break;
-			}
+				} else 
+					break;
+		}
 	}
 
-	//activation 2   --softmax on classes
-	// 20130425 - this is now a 'safe' softmax
-
-	normalizeOutputClassActivation();
+	layer2.normalizeActivation(vocab._size);
  
-	if (gen>0) return;	//if we generate words, we don't know what current word is -> only classes are estimated and word is selected in testGen()
+	if (gen > 0)
+		return;	//if we generate words, we don't know what current word is -> only classes are estimated and word is selected in testGen()
 
-    
 	//1->2 word
     
-	if (word!=-1) {
+	if (word != -1) {
 		clearClassActivation(word);
-		if (layerc._size>0) {
-			// Propagate activation of compression layer into portion of output layer
+		if (layerc._size > 0) {
+			// Propagate activation of compression layer into class portion of output layer
 			matrixXvector(
 				layer2,
 				layerc,
 				matrixc2,
 				matrixc2._rows,
-				wordClass._words[vocab._words[word].class_index][0],
-				wordClass._words[vocab._words[word].class_index][0] + wordClass._word_count[vocab._words[word].class_index],
+				wordClass.firstWordInClass(vocab._words[word].class_index),
+				wordClass.lastWordInClass(vocab._words[word].class_index),
 				0, 
 				layerc._size, 
 				0
@@ -740,49 +703,46 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		}
 		else
 		{
-			// Propagate activation of layer1 into portion of output layer
+			// Propagate activation of layer1 into class portion of output layer
 			matrixXvector(
 				layer2,
 				layer1,
 				matrix12,
 				matrix12._rows,
-				wordClass._words[vocab._words[word].class_index][0],
-				wordClass._words[vocab._words[word].class_index][0] + wordClass._word_count[vocab._words[word].class_index],
+				wordClass.firstWordInClass(vocab._words[word].class_index),
+				wordClass.lastWordInClass(vocab._words[word].class_index),
 				0,
 				layer1._size,
 				0
 			);
 		}
-	}
     
-	//apply direct connections to words
-	if (word!=-1) if (direct_size>0) {
-		unsigned long long hash[MAX_NGRAM_ORDER];
-	    
-		for (a=0; a<direct_order; a++) hash[a]=0;
+		//apply direct connections to words
+		if (direct_size > 0) {
+			unsigned long long hash[MAX_NGRAM_ORDER];
+			for (a=0; a<direct_order; a++) hash[a] = 0;
+			for (a=0; a<direct_order; a++) {
+				b=0;
+				if ((a > 0) && (history[a - 1] == -1)) 
+					break;
+				hash[a] = PRIMES[0] * PRIMES[1] * (unsigned long long)(vocab._words[word].class_index + 1);
+				for (b = 1; b <= a; b++) hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);
+				hash[a] = (hash[a] % (direct_size / 2)) + (direct_size / 2);
+			}
 	
-		for (a=0; a<direct_order; a++) {
-			b=0;
-			if (a>0) if (history[a-1]==-1) break;
-			hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab._words[word].class_index+1);
-				
-			for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-			hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
+			for (c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
+				a = wordClass._words[vocab._words[word].class_index][c];
+				for (b = 0; b < direct_order; b++) 
+					if (hash[b]) {
+						layer2._neurons[a].ac += syn_d[hash[b]];
+						hash[b]++;
+						hash[b] = hash[b] % direct_size;
+					} else 
+						break;
+			}
 		}
-	
-		for (c=0; c<wordClass._word_count[vocab._words[word].class_index]; c++) {
-			a = wordClass._words[vocab._words[word].class_index][c];
-	    
-			for (b=0; b<direct_order; b++) if (hash[b]) {
-				layer2._neurons[a].ac+=syn_d[hash[b]];
-				hash[b]++;
-				hash[b]=hash[b]%direct_size;
-			} else break;
-		}
+		layer2.setSigmoidActivation(wordClass, vocab._words[word]);
 	}
-
-	if (word!=-1)
-		layer2_normalizeActivation(word);
 }
 
 void CRnnLM::computeErrorVectors(int word)

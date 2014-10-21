@@ -26,7 +26,7 @@ void Neuron::readActivation(FILE *fi) {
 	ac = fl;
 }
 
-void Neuron::sigmoidActivation() {
+void Neuron::applySigmoid() {
 	if (ac > 50) ac = 50;  //for numerical stability
 	if (ac < -50) ac = -50;  //for numerical stability
 	ac = 1 / (1 + fasterexp(-ac));
