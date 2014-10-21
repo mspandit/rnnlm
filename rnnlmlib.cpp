@@ -640,9 +640,7 @@ void CRnnLM::normalizeOutputClassActivation()
 
 void CRnnLM::layer2_normalizeActivation(int word)
 {
-	real maxAc = layer2.maxActivation(wordClass, vocab._words[word]);
-	double sum = layer2.sumSigmoid(wordClass, vocab._words[word], maxAc);
-	layer2.setSigmoidActivation(wordClass, vocab._words[word], maxAc, sum);
+	layer2.setSigmoidActivation(wordClass, vocab._words[word]);
 }
 
 void CRnnLM::clearClassActivation(int word)
