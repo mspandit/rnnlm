@@ -88,35 +88,6 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 	}
 }
 
-void Backpropagation::initialize(int rows, int columns) {
-	_rows = rows;
-	_columns = columns;
-	if (_bptt > 0) {
-		_history = (int *)calloc((_bptt + _block + 10), sizeof(int));
-		_neurons = (Neuron *)calloc((_bptt + _block + 1) * columns, sizeof(Neuron));
-		for (int a = 0; a < (_bptt + _block) * columns; a++) {
-			_history[a] = -1;
-			_neurons[a].clear();
-		}
-		_synapses = (Synapse *)calloc(_rows * _columns, sizeof(Synapse));
-		if (_synapses == NULL) {
-			printf("Memory allocation failed\n");
-			exit(1);
-		}
-	}
-}
-
-void Backpropagation::reset() {
-	if (_bptt > 0) {
-		for (int a = 1; a < _bptt + _block; a++) 
-			_history[a] = 0;
-		for (int a = _bptt + _block - 1; a > 1; a--) 
-			for (int b = 0; b < _columns; b++) {
-				_neurons[a * _columns + b].clear();
-			}
-	}
-}
-
 void CRnnLM::initialize()
 {
 	int a, b, cl;
@@ -124,7 +95,6 @@ void CRnnLM::initialize()
 	layer0.initialize(vocab._size + layer1._size);
 	layer2.initialize(vocab._size + class_size);
 	matrix01.initialize(layer0._size, layer1._size);
-	matrix12.initialize(layer1._size, layer2._size);
 	
 	if (layerc._size == 0) {
 		matrix12.initialize(layer1._size, layer2._size);
@@ -1022,41 +992,48 @@ void CRnnLM::learn(int last_word, int word)
 	}
 
 	if (bp._bptt <= 1) {		//bptt==1 -> normal BP
-		for (a = 0; a < layer1._size; a++) 
-			layer1._neurons[a].er = layer1._neurons[a].er * layer1._neurons[a].ac * (1 - layer1._neurons[a].ac);    //error derivation at layer 1
+		layer1.deriveError();
 
 		//weight update 1->0
 		a=last_word;
 		if (a!=-1) {
-			if ((counter%10)==0)
-				for (b=0; b<layer1._size; b++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac - matrix01._synapses[a+b*layer0._size].weight*beta2;
+			if ((counter % 10) == 0)
+				for (b = 0; b < layer1._size; b++) 
+					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac - matrix01._synapses[a + b * layer0._size].weight * beta2;
 			else
-				for (b=0; b<layer1._size; b++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
+				for (b = 0; b < layer1._size; b++) 
+					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac;
 		}
 
-		if ((counter%10)==0) {
-			for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac - matrix01._synapses[a+b*layer0._size].weight*beta2;
+		if ((counter % 10) == 0) {
+			for (b = 0; b < layer1._size; b++) 
+				for (a=layer0._size-layer1._size; a<layer0._size; a++) 
+					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac - matrix01._synapses[a + b * layer0._size].weight * beta2;
 		}
 		else {
-			for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
+			for (b = 0; b < layer1._size; b++)
+				for (a = layer0._size - layer1._size; a < layer0._size; a++) 
+					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac;
 		}
 	}
 	else		//BPTT
 	{
-		for (b=0; b<layer1._size; b++) bp._neurons[b].copy(layer1._neurons[b]);
+		for (b = 0; b < layer1._size; b++) 
+			bp._neurons[b].copy(layer1._neurons[b]);
 	
-		if (((counter%bp._block)==0) || (independent && (word==0))) {
-			for (step=0; step<bp._bptt+bp._block-2; step++) {
-				for (a=0; a<layer1._size; a++) layer1._neurons[a].er=layer1._neurons[a].er*layer1._neurons[a].ac*(1-layer1._neurons[a].ac);    //error derivation at layer 1
+		if (((counter % bp._block) == 0) || (independent && (word == 0))) {
+			for (step = 0; step < bp._bptt + bp._block-2; step++) {
+				layer1.deriveError();
 
 				//weight update 1->0
-				a=bp._history[step];
-				if (a!=-1)
-				for (b=0; b<layer1._size; b++) {
-					bp._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er;//*layer0._neurons[a].ac; --should be always set to 1
+				a = bp._history[step];
+				if (a != -1)
+				for (b = 0; b < layer1._size; b++) {
+					bp._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er;//*layer0._neurons[a].ac; --should be always set to 1
 				}
-	    
-				for (a=layer0._size-layer1._size; a<layer0._size; a++) layer0._neurons[a].er=0;
+
+				for (a = layer0._size - layer1._size; a < layer0._size; a++)
+					layer0._neurons[a].er = 0;
 
 				// propagate errors from entire layer 1 to prior-state portion of input layer
 				matrixXvector(
@@ -1071,30 +1048,29 @@ void CRnnLM::learn(int last_word, int word)
 					1
 				);
 
-				for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) {
-					//layer0._neurons[a].er += layer1._neurons[b].er * matrix01._synapses[a+b*layer0._size].weight;
-					bp._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
-				}
+				for (b = 0; b < layer1._size; b++) 
+					for (a = layer0._size - layer1._size; a < layer0._size; a++) {
+						//layer0._neurons[a].er += layer1._neurons[b].er * matrix01._synapses[a+b*layer0._size].weight;
+						bp._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac;
+					}
 	    
 				for (a=0; a<layer1._size; a++) {		//propagate error from time T-n to T-n-1
-					layer1._neurons[a].er=layer0._neurons[a+layer0._size-layer1._size].er + bp._neurons[(step+1)*layer1._size+a].er;
+					layer1._neurons[a].er = layer0._neurons[a + layer0._size - layer1._size].er + bp._neurons[(step + 1) * layer1._size + a].er;
 				}
 	    
-				if (step<bp._bptt+bp._block-3)
-				for (a=0; a<layer1._size; a++) {
-					layer1._neurons[a].ac=bp._neurons[(step+1)*layer1._size+a].ac;
-					layer0._neurons[a+layer0._size-layer1._size].ac=bp._neurons[(step+2)*layer1._size+a].ac;
+				if (step < bp._bptt + bp._block - 3)
+				for (a = 0; a < layer1._size; a++) {
+					layer1._neurons[a].ac = bp._neurons[(step + 1) * layer1._size + a].ac;
+					layer0._neurons[a + layer0._size - layer1._size].ac = bp._neurons[(step + 2) * layer1._size + a].ac;
 				}
 			}
 	    
 			for (a=0; a<(bp._bptt+bp._block)*layer1._size; a++) {
 				bp._neurons[a].er=0;
 			}
-	
-	
-			for (b=0; b<layer1._size; b++) layer1._neurons[b].ac=bp._neurons[b].ac;		//restore hidden layer after bptt
 		
-	
+			for (b=0; b<layer1._size; b++) layer1._neurons[b].ac=bp._neurons[b].ac;		//restore hidden layer after bptt
+
 			//
 			for (b=0; b<layer1._size; b++) {		//copy temporary syn0
 				if ((counter%10)==0) {

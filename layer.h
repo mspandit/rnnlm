@@ -26,6 +26,7 @@ public:
 	void setActivation(real);
 	void receiveActivation(Layer &, int, Synapse []);
 	void sigmoidActivation();
+	void deriveError();
 };
 
 #endif

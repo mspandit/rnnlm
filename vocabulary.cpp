@@ -159,48 +159,50 @@ int Vocabulary::learnFromTrainFile(char *train_file, int debug_mode)    //assume
 	return train_wcn;
 }
 
+// Assigns every word in the vocabulary to a class such that
+// total frequency of words in each class is approximately
+// equal (???)
 void Vocabulary::setClassIndexOld(int class_size) {
-	int b = 0;
+	int vocab_word_count = 0;
 	int a = 0;
 	double df = 0;
 	
 	for (int i = 0; i < _size; i++)
-		b += _words[i].cn;
+		vocab_word_count += _words[i].cn;
 
 	for (int i = 0; i < _size; i++) {
-		df += _words[i].cn / (double)b;
+		df += _words[i].cn / (double)vocab_word_count;
 		if (df > 1) df = 1;
+		_words[i].class_index = a;
 		if (df > (a + 1) / (double)class_size) {
-			_words[i].class_index = a;
 			if (a < class_size - 1)
 				a++;
-		} else {
-			_words[i].class_index = a;
 		}
 	}
 }
 
+// A new assignment of every word in the vocabulary to a class
+// such that the total frequency of words in each class meets
+// a constraint (???)
 void Vocabulary::setClassIndexNew(int class_size) {
-	int b = 0;
+	int vocab_word_count = 0;
 	int a = 0;
 	double dd = 0;
 	double df = 0;
 
 	for (int i = 0; i < _size; i++)
-		b += _words[i].cn;
+		vocab_word_count += _words[i].cn;
 	
 	for (int i = 0; i < _size; i++)
-		dd += sqrt(_words[i].cn / (double)b);
+		dd += sqrt(_words[i].cn / (double)vocab_word_count);
 
 	for (int i = 0; i < _size; i++) {
-		df += sqrt(_words[i].cn / (double)b) / dd;
+		df += sqrt(_words[i].cn / (double)vocab_word_count) / dd;
 		if (df > 1) df=1;
+		_words[i].class_index = a;
 		if (df > (a + 1) / (double)class_size) {
-			_words[i].class_index = a;
 			if (a < class_size - 1) 
 				a++;
-		} else {
-			_words[i].class_index = a;
 		}
 	}
 }

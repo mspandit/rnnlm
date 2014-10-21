@@ -72,3 +72,8 @@ void Layer::sigmoidActivation()
 	for (int layer_index = 0; layer_index < _size; layer_index++) 
 		_neurons[layer_index].sigmoidActivation();
 }
+
+void Layer::deriveError() {
+	for (int a = 0; a < _size; a++) 
+		_neurons[a].er = _neurons[a].er * _neurons[a].ac * (1 - _neurons[a].ac);
+}
