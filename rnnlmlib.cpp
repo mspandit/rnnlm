@@ -1646,7 +1646,7 @@ void CRnnLM::testGen()
 			layer2,
 			layer1,
 			matrix12,
-			matrix12._columns,
+			matrix12._rows,
 			class_words[cla][0],
 			class_words[cla][0] + class_word_count[cla],
 			0,
