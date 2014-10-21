@@ -6,6 +6,11 @@
 #include "synapse.h"
 #include "layer.h"
 
+void Layer::initialize(int size) {
+	_size = size;
+	_neurons = (Neuron *)calloc(_size, sizeof(Neuron));
+}
+
 void Layer::copy(const Layer &src) {
 	for (int a = 0; a < _size; a++) {
 		_neurons[a].copy(src._neurons[a]);

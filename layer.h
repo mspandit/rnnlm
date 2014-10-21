@@ -14,6 +14,7 @@ public:
 	~Layer() {
 		if (_neurons != NULL) free(_neurons);
 	}
+	void initialize(int);
 	void copy(const Layer &);
 	void clearActivation();
 	void clearError();

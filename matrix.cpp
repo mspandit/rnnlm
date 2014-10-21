@@ -6,6 +6,12 @@
 #include "synapse.h"
 #include "matrix.h"
 
+void Matrix::initialize(int rows, int columns) {
+	_synapses = (Synapse *)calloc(rows * columns, sizeof(Synapse));
+	_rows = rows;
+	_columns = columns;
+}
+
 void Matrix::copy(const Matrix &src) {
 	for (int b = 0; b < _rows; b++)
 		for (int a = 0; a < _columns; a++) 
@@ -42,4 +48,16 @@ void Matrix::read(FILE *fi) {
 			_synapses[a + b * _columns].readWeight(fi);
 		}
 	}
+}
+
+real random(real min, real max)
+{
+	return rand()/(real)RAND_MAX*(max-min)+min;
+}
+
+void Matrix::randomize()
+{
+	for (int dest_index = 0; dest_index < _rows; dest_index++) 
+		for (int src_index = 0; src_index < _columns; src_index++)
+			_synapses[src_index + dest_index * _columns].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }

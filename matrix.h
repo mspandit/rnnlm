@@ -15,6 +15,7 @@ public:
 	~Matrix() {
 		if (NULL != _synapses) free(_synapses);
 	}
+	void initialize(int rows, int columns);
 	void copy(const Matrix &);
 	void write(FILE *);
 	void print(FILE *);

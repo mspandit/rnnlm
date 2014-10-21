@@ -30,18 +30,7 @@ extern "C" {
 #endif
 //
 
-
-real random(real min, real max)
-{
-	return rand()/(real)RAND_MAX*(max-min)+min;
-}
-
-void Matrix::randomize()
-{
-	for (int dest_index = 0; dest_index < _rows; dest_index++) 
-		for (int src_index = 0; src_index < _columns; src_index++)
-			_synapses[src_index + dest_index * _columns].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
-}
+extern real random(real, real);
 
 void CRnnLM::setTrainFile(char *str)
 {
@@ -62,10 +51,6 @@ void CRnnLM::setRnnLMFile(char *str)
 {
 	strcpy(rnnlm_file, str);
 }
-
-
-
-
 
 int CRnnLM::readWordIndex(FILE *fin)
 {
@@ -109,26 +94,13 @@ void CRnnLM::initialize()
 {
 	int a, b, cl;
 
-	layer0._size = vocab._size + layer1._size;
-	layer2._size = vocab._size + class_size;
-
-	layer0._neurons = (Neuron *)calloc(layer0._size, sizeof(Neuron));
-	layer1._neurons = (Neuron *)calloc(layer1._size, sizeof(Neuron));
-	layerc._neurons = (Neuron *)calloc(layerc._size, sizeof(Neuron));
-	layer2._neurons = (Neuron *)calloc(layer2._size, sizeof(Neuron));
-
-	matrix01._synapses = (Synapse *)calloc(layer0._size * layer1._size, sizeof(Synapse));
-	matrix01._rows = layer0._size;
-	matrix01._columns = layer1._size;
-	
-	matrix12._synapses=(Synapse *)calloc(layer1._size * layer2._size, sizeof(Synapse));
-	matrix12._rows = layer1._size;
-	matrix12._columns = layer2._size;
+	layer0.initialize(vocab._size + layer1._size);
+	layer2.initialize(vocab._size + class_size);
+	matrix01.initialize(layer0._size, layer1._size);
+	matrix12.initialize(layer1._size, layer2._size);
 	
 	if (layerc._size != 0) {
-		matrix1c._synapses=(Synapse *)calloc(layerc._size * layer2._size, sizeof(Synapse));
-		matrix1c._rows = layerc._size;
-		matrix1c._columns = layer2._size;
+		matrix1c.initialize(layerc._size, layer2._size);
 	}
 
 	if (matrix12._synapses == NULL) {
@@ -148,32 +120,19 @@ void CRnnLM::initialize()
 		exit(1);
 	}
 
-	layer0b._neurons=(Neuron *)calloc(layer0._size, sizeof(Neuron));
-	layer0b._size = layer0._size;
-	layer1b._neurons =(Neuron *)calloc(layer1._size, sizeof(Neuron));
-	layer1b._size = layer1._size;
-	layercb._neurons = (Neuron *)calloc(layerc._size, sizeof(Neuron));
-	layercb._size = layerc._size;
-	layer1b2._neurons = (Neuron *)calloc(layer1._size, sizeof(Neuron));
-	layer1b2._size = layer1._size;
-	layer2b._neurons = (Neuron *)calloc(layer2._size, sizeof(Neuron));
-	layer2b._size = layer2._size;
+	layer0b.initialize(layer0._size);
+	layer1b.initialize(layer1._size);
+	layercb.initialize(layerc._size);
+	layer1b2.initialize(layer1._size);
+	layer2b.initialize(layer2._size);
 
-	matrix01b._synapses = (Synapse *)calloc(layer0._size*layer1._size, sizeof(Synapse));
-	matrix01b._rows = layer0._size;
-	matrix01b._columns = layer1._size;
+	matrix01b.initialize(layer0._size, layer1._size);
 	
 	if (layerc._size==0) {
-		matrix12b._synapses =(Synapse *)calloc(layer1._size*layer2._size, sizeof(Synapse));
-		matrix12b._rows = layer1._size;
-		matrix12b._columns = layer2._size;
+		matrix12b.initialize(layer1._size, layer2._size);
 	} else {
-		matrix12b._synapses =(Synapse *)calloc(layer1._size*layerc._size, sizeof(Synapse));
-		matrix12b._rows = layer1._size;
-		matrix12b._columns = layerc._size;
-		matrix1cb._synapses =(Synapse *)calloc(layerc._size*layer2._size, sizeof(Synapse));
-		matrix1cb._rows = layerc._size;
-		matrix1cb._columns = layer2._size;
+		matrix12b.initialize(layer1._size, layerc._size);
+		matrix1cb.initialize(layerc._size, layer2._size);
 	}
 
 	if (matrix12b._synapses ==NULL) {

@@ -142,9 +142,7 @@ public:
 	train_cur_pos=0;
 
 	vocab.initialize(100, 0, 100000000);
-	
-	layer1._size=30;
-	
+	layer1.initialize(30);	
 	direct_size=0;
 	direct_order=0;
 	
@@ -216,8 +214,8 @@ public:
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
     void setRegularization(real newBeta) {beta=newBeta;}
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
-    void setHiddenLayerSize(int newsize) {layer1._size=newsize;}
-    void setCompressionLayerSize(int newsize) {layerc._size=newsize;}
+    void setHiddenLayerSize(int newsize) {layer1.initialize(newsize);}
+    void setCompressionLayerSize(int newsize) {layerc.initialize(newsize);}
     void setDirectSize(long long newsize) {direct_size=newsize;}
     void setDirectOrder(int newsize) {direct_order=newsize;}
     void setBPTT(int newval) {bptt=newval;}
