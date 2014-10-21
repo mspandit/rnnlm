@@ -274,7 +274,7 @@ public:
     void testGen();
 
     void slowMatrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);    
-    void matrixXvector(Neuron *dest, Neuron *srcvec, Synapse *srcmatrix, int matrix_width, int from, int to, int from2, int to2, int type);
+    void matrixXvector(Layer &, Layer &, Matrix &, int matrix_width, int from, int to, int from2, int to2, int type);
 	
 	void layer2_clearActivation(Neuron *, int, int);
 	void inputLayer_clear(Neuron [], int, int);

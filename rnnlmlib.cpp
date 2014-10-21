@@ -588,9 +588,9 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 // Propagate activation from the source layer to the destination layer
 // using the specified weight matrix.
 void CRnnLM::matrixXvector(
-	Neuron *dest, 
-	Neuron *srcvec, 
-	Synapse *srcmatrix, 
+	Layer &dest, 
+	Layer &src, 
+	Matrix &matrix, 
 	int matrix_width, 
 	int from, 
 	int to, 
@@ -609,12 +609,12 @@ void CRnnLM::matrixXvector(
 	    
 			for (a=from2; a<to2; a++)
 				for (int c = 0; c < sizeof(val) / sizeof(real); c++)
-					dest[b*(sizeof(val) / sizeof(real))+from+c].ac += srcvec[a].ac * srcmatrix[a+(b*(sizeof(val) / sizeof(real))+from+c)*matrix_width].weight;
+					dest._neurons[b*(sizeof(val) / sizeof(real))+from+c].ac += src._neurons[a].ac * matrix._synapses[a+(b*(sizeof(val) / sizeof(real))+from+c)*matrix_width].weight;
 		}
     
 		for (b=b*(sizeof(val) / sizeof(real)); b<to-from; b++) {
 			for (a=from2; a<to2; a++) {
-				dest[b+from].ac += srcvec[a].ac * srcmatrix[a+(b+from)*matrix_width].weight;
+				dest._neurons[b+from].ac += src._neurons[a].ac * matrix._synapses[a+(b+from)*matrix_width].weight;
 			}
 		}
 	}
@@ -625,21 +625,21 @@ void CRnnLM::matrixXvector(
 	    
 			for (b=from; b<to; b++)
 				for (int c = 0; c < (sizeof(val) / sizeof(real)); c++)
-					val[c] += srcvec[b].er * srcmatrix[a*(sizeof(val) / sizeof(real))+from2+c+b*matrix_width].weight;
+					val[c] += src._neurons[b].er * matrix._synapses[a*(sizeof(val) / sizeof(real))+from2+c+b*matrix_width].weight;
 			for (int c = 0; (c < sizeof(val) / sizeof(real)); c++)
-				dest[a*(sizeof(val) / sizeof(real))+from2+c].er += val[c];
+				dest._neurons[a*(sizeof(val) / sizeof(real))+from2+c].er += val[c];
 		}
 	
 		for (a=a*(sizeof(val) / sizeof(real)); a<to2-from2; a++) {
 			for (b=from; b<to; b++) {
-				dest[a+from2].er += srcvec[b].er * srcmatrix[a+from2+b*matrix_width].weight;
+				dest._neurons[a+from2].er += src._neurons[b].er * matrix._synapses[a+from2+b*matrix_width].weight;
 			}
 		}
     	
 		if (gradient_cutoff>0)
 		for (a=from2; a<to2; a++) {
-			if (dest[a].er>gradient_cutoff) dest[a].er=gradient_cutoff;
-			if (dest[a].er<-gradient_cutoff) dest[a].er=-gradient_cutoff;
+			if (dest._neurons[a].er>gradient_cutoff) dest._neurons[a].er=gradient_cutoff;
+			if (dest._neurons[a].er<-gradient_cutoff) dest._neurons[a].er=-gradient_cutoff;
 		}
 	}
 }
@@ -739,7 +739,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	layerc.clearActivation();
     
 	// Propagate activation of prior hidden layer into current hidden layer
-	matrixXvector(layer1._neurons, layer0._neurons, matrix01._synapses, layer0._size, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
+	matrixXvector(layer1, layer0, matrix01, matrix01._rows, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
 
 	// Propagate activation of last word into new hidden layer
 	if (last_word != -1)
@@ -748,7 +748,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	//activate 1      --sigmoid
     sigmoidActivation(layer1._neurons, layer1._size);
 	if (layerc._size>0) {
-		matrixXvector(layerc._neurons, layer1._neurons, matrix12._synapses, layer1._size, 0, layerc._size, 0, layer1._size, 0);
+		matrixXvector(layerc, layer1, matrix12, matrix12._rows, 0, layerc._size, 0, layer1._size, 0);
 		//activate compression      --sigmoid
 		sigmoidActivation(layerc._neurons, layerc._size);
 	}
@@ -758,12 +758,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
     
 	if (layerc._size>0) {
 		// Propagate activation of compression layer into output layer
-		matrixXvector(layer2._neurons, layerc._neurons, matrixc2._synapses, layerc._size, vocab._size, layer2._size, 0, layerc._size, 0);
+		matrixXvector(layer2, layerc, matrixc2, matrixc2._rows, vocab._size, layer2._size, 0, layerc._size, 0);
 	}
 	else
 	{
 		// Propagate activation of layer 1 into output layer
-		matrixXvector(layer2._neurons, layer1._neurons, matrix12._synapses, layer1._size, vocab._size, layer2._size, 0, layer1._size, 0);
+		matrixXvector(layer2, layer1, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 0);
 	}
 
 	//apply direct connections to classes
@@ -804,12 +804,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		clearClassActivation(word);
 		if (layerc._size>0) {
 			// Propagate activation of compression layer into output layer
-			matrixXvector(layer2._neurons, layerc._neurons, matrixc2._synapses, layerc._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 0);
+			matrixXvector(layer2, layerc, matrixc2, matrixc2._rows, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 0);
 		}
 		else
 		{
 			// Propagate activation of layer1 into output layer
-			matrixXvector(layer2._neurons, layer1._neurons, matrix12._synapses, layer1._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 0);
+			matrixXvector(layer2, layer1, matrix12, matrix12._rows, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 0);
 		}
 	}
     
@@ -929,7 +929,7 @@ void CRnnLM::learn(int last_word, int word)
 	}
     
 	if (layerc._size>0) {
-		matrixXvector(layerc._neurons, layer2._neurons, matrixc2._synapses, layerc._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 1);
+		matrixXvector(layerc, layer2, matrixc2, matrixc2._columns, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 1);
 	
 		t=class_words[vocab._words[word].class_index][0]*layerc._size;
 		for (c=0; c<class_word_count[vocab._words[word].class_index]; c++) {
@@ -938,7 +938,7 @@ void CRnnLM::learn(int last_word, int word)
 			t+=layerc._size;
 		}
 
-		matrixXvector(layerc._neurons, layer2._neurons, matrixc2._synapses, layerc._size, vocab._size, layer2._size, 0, layerc._size, 1);		//propagates errors 2->c for classes
+		matrixXvector(layerc, layer2, matrixc2, matrixc2._columns, vocab._size, layer2._size, 0, layerc._size, 1);		//propagates errors 2->c for classes
 	
 		t=vocab._size*layerc._size;
 		for (b=vocab._size; b<layer2._size; b++) {
@@ -948,7 +948,7 @@ void CRnnLM::learn(int last_word, int word)
 	
 		for (a=0; a<layerc._size; a++) layerc._neurons[a].er=layerc._neurons[a].er*layerc._neurons[a].ac*(1-layerc._neurons[a].ac);    //error derivation at compression layer
 	
-		matrixXvector(layer1._neurons, layerc._neurons, matrix12._synapses, layer1._size, 0, layerc._size, 0, layer1._size, 1);		//propagates errors c->1
+		matrixXvector(layer1, layerc, matrix12, matrix12._columns, 0, layerc._size, 0, layer1._size, 1);		//propagates errors c->1
 	
 		for (b=0; b<layerc._size; b++) {
 			for (a=0; a<layer1._size; a++) matrix12._synapses[a+b*layer1._size].weight+=alpha*layerc._neurons[b].er*layer1._neurons[a].ac;	//weight 1->c update
@@ -957,7 +957,7 @@ void CRnnLM::learn(int last_word, int word)
 	else
 	{
 		// propagate error from output layer to layer 1 for vocabulary
-		matrixXvector(layer1._neurons, layer2._neurons, matrix12._synapses, layer1._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 1);
+		matrixXvector(layer1, layer2, matrix12, matrix12._rows, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 1);
     	
 		t = class_words[vocab._words[word].class_index][0] * layer1._size;
 		for (c = 0; c < class_word_count[vocab._words[word].class_index]; c++) {
@@ -967,7 +967,7 @@ void CRnnLM::learn(int last_word, int word)
 		}
 
 		// propagate error from output layer to layer 1 for classes
-		matrixXvector(layer1._neurons, layer2._neurons, matrix12._synapses, layer1._size, vocab._size, layer2._size, 0, layer1._size, 1);		//propagates errors 2->1 for classes
+		matrixXvector(layer1, layer2, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 1);		//propagates errors 2->1 for classes
 	
 		t = vocab._size * layer1._size;
 		for (b = vocab._size; b < layer2._size; b++) {
@@ -1013,7 +1013,7 @@ void CRnnLM::learn(int last_word, int word)
 	    
 				for (a=layer0._size-layer1._size; a<layer0._size; a++) layer0._neurons[a].er=0;
 		
-				matrixXvector(layer0._neurons, layer1._neurons, matrix01._synapses, layer0._size, 0, layer1._size, layer0._size-layer1._size, layer0._size, 1);		//propagates errors 1->0
+				matrixXvector(layer0, layer1, matrix01, matrix01._rows, 0, layer1._size, layer0._size-layer1._size, layer0._size, 1);		//propagates errors 1->0
 				for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) {
 					//layer0._neurons[a].er += layer1._neurons[b].er * matrix01._synapses[a+b*layer0._size].weight;
 					bp._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
@@ -1560,7 +1560,7 @@ void CRnnLM::testGen()
 		// !!!!!!!!  THIS WILL WORK ONLY IF CLASSES ARE CONTINUALLY DEFINED IN VOCAB !!! (like class 10 = words 11 12 13; not 11 12 16)  !!!!!!!!
 		// forward pass 1->2 for words
 		for (c=0; c<class_word_count[cla]; c++) layer2._neurons[class_words[cla][c]].ac=0;
-		matrixXvector(layer2._neurons, layer1._neurons, matrix12._synapses, layer1._size, class_words[cla][0], class_words[cla][0]+class_word_count[cla], 0, layer1._size, 0);
+		matrixXvector(layer2, layer1, matrix12, matrix12._columns, class_words[cla][0], class_words[cla][0]+class_word_count[cla], 0, layer1._size, 0);
         
 		//apply direct connections to words
 		if (word!=-1) if (direct_size>0) {
