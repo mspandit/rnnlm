@@ -197,8 +197,6 @@ public:
 	}
     }
     
-    real random(real min, real max);
-
     void setTrainFile(char *str);
     void setValidFile(char *str);
     void setTestFile(char *str);

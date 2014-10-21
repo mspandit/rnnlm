@@ -20,6 +20,7 @@ public:
 	void print(FILE *);
 	void read(FILE *);
 	void scan(FILE *);
+	void randomize();
 };
 
 #endif

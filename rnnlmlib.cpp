@@ -31,9 +31,16 @@ extern "C" {
 //
 
 
-real CRnnLM::random(real min, real max)
+real random(real min, real max)
 {
 	return rand()/(real)RAND_MAX*(max-min)+min;
+}
+
+void Matrix::randomize()
+{
+	for (int dest_index = 0; dest_index < _rows; dest_index++) 
+		for (int src_index = 0; src_index < _columns; src_index++)
+			_synapses[src_index + dest_index * _columns].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }
 
 void CRnnLM::setTrainFile(char *str)
@@ -179,11 +186,11 @@ void CRnnLM::initialize()
 	layerc.clear();
 	layer2.clear();
 
-	randomizeWeights(matrix01._synapses, layer0._size, layer1._size);
+	matrix01.randomize();
 
-	randomizeWeights(matrix12._synapses, layer2._size, layer1._size);
+	matrix12.randomize();
 	if (layerc._size>0) {
-		randomizeWeights(matrix1c._synapses, layer2._size, layerc._size);
+		matrix1c.randomize();
 	}
     
 	long long aa;
@@ -681,13 +688,6 @@ void CRnnLM::sigmoidActivation(Neuron *neurons, int num_neurons)
 {
 	for (int layer_index = 0; layer_index < num_neurons; layer_index++) 
 		neurons[layer_index].sigmoidActivation();
-}
-
-void CRnnLM::randomizeWeights(Synapse *synapses, int src_size, int dest_size)
-{
-	for (int dest_index = 0; dest_index < dest_size; dest_index++) 
-		for (int src_index = 0; src_index < src_size; src_index++)
-			synapses[src_index + dest_index * src_size].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }
 
 void CRnnLM::layer2_clearActivation(Neuron neurons[], int first_neuron, int num_neurons)
