@@ -19,8 +19,10 @@
 #include "neuron.h"
 #include "synapse.h"
 #include "vocabulary.h"
+#include "word_class.h"
 #include "layer.h"
 #include "matrix.h"
+#include "backpropagation.h"
 #include "rnnlmlib.h"
 #include "options.h"
 

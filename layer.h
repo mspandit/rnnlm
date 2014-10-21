@@ -27,6 +27,8 @@ public:
 	void receiveActivation(Layer &, int, Synapse []);
 	void sigmoidActivation();
 	void deriveError();
+	real maxActivation(const WordClass &, const Word &);
+	double sumSigmoid(const WordClass &, const Word &, real);
 };
 
 #endif

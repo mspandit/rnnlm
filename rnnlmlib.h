@@ -19,33 +19,6 @@ const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 
-class Backpropagation {
-public:
-    int _bptt;
-    int _block;
-    int *_history;
-    Neuron *_neurons;
-    Synapse *_synapses;
-	int _rows;
-	int _columns;
-	
-	Backpropagation() {
-		_bptt = 0;
-		_block = 10;
-		_history = NULL;
-		_neurons = NULL;
-		_synapses = NULL;
-	}
-	
-	~Backpropagation() {
-		if (NULL != _history) free(_history);
-		if (NULL != _neurons) free(_neurons);
-		if (NULL != _synapses) free(_synapses);
-	}
-	void initialize(int, int);
-	void reset();
-};
-
 class CRnnLM{
 protected:
     char train_file[MAX_STRING];
@@ -85,14 +58,10 @@ protected:
     int anti_k;
     
     real beta;
-    
-    int class_size;
-    int **class_words;
-    int *class_word_count;
-    int *class_max_cn;
+
+	WordClass wordClass;
     int old_classes;
 
-    
     long long direct_size;
     int direct_order;
     int history[MAX_NGRAM_ORDER];
@@ -179,7 +148,7 @@ public:
 
 		rand_seed=1;
 
-		class_size=100;
+		wordClass._size=100;
 		old_classes=0;
 
 		one_iter=0;
@@ -192,17 +161,10 @@ public:
     
     ~CRnnLM()		//destructor, deallocates memory
     {
-		int i;
-	
 		if (layer0._neurons != NULL) {	    
 		    if (syn_d!=NULL) free(syn_d);
 
 		    if (syn_db!=NULL) free(syn_db);
-
-		    for (i=0; i<class_size; i++) free(class_words[i]);
-		    free(class_max_cn);
-		    free(class_word_count);
-		    free(class_words);
 		}
     }
     
@@ -214,7 +176,7 @@ public:
     
     void setFileType(int newt) {filetype=newt;}
     
-    void setClassSize(int newSize) {class_size=newSize;}
+    void setClassSize(int newSize) {wordClass._size=newSize;}
     void setOldClasses(int newVal) {old_classes=newVal;}
     void setLambda(real newLambda) {lambda=newLambda;}
     void setGradientCutoff(real newGradient) {gradient_cutoff=newGradient;}
