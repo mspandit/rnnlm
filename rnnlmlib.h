@@ -19,6 +19,33 @@ const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 
+class Backpropagation {
+public:
+    int _bptt;
+    int _block;
+    int *_history;
+    Neuron *_neurons;
+    Synapse *_synapses;
+	int _rows;
+	int _columns;
+	
+	Backpropagation() {
+		_bptt = 0;
+		_block = 10;
+		_history = NULL;
+		_neurons = NULL;
+		_synapses = NULL;
+	}
+	
+	~Backpropagation() {
+		if (NULL != _history) free(_history);
+		if (NULL != _neurons) free(_neurons);
+		if (NULL != _synapses) free(_synapses);
+	}
+	void initialize(int, int);
+	void reset();
+};
+
 class CRnnLM{
 protected:
     char train_file[MAX_STRING];
@@ -69,12 +96,8 @@ protected:
     long long direct_size;
     int direct_order;
     int history[MAX_NGRAM_ORDER];
-    
-    int bptt;
-    int bptt_block;
-    int *bptt_history;
-    Neuron *bptt_hidden;
-    Synapse *bptt_syn0;
+
+	Backpropagation bp;
     
     int gen;
 
@@ -96,13 +119,13 @@ protected:
 
 	Matrix matrix01;
     Matrix matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
-    Matrix matrix1c;		//weights between hidden and compression layer
+    Matrix matrixc2;		//weights between hidden and compression layer
     direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     
 
     Matrix matrix01b;
     Matrix matrix12b;
-	Matrix matrix1cb;
+	Matrix matrixc2b;
     direct_t *syn_db;
     
     
@@ -112,87 +135,75 @@ public:
 
     CRnnLM()		//constructor initializes variables
     {
-	version=10;
-	filetype=TEXT;
-	
-	use_lmprob=0;
-	lambda=0.75;
-	gradient_cutoff=15;
-	dynamic=0;
-    
-	train_file[0]=0;
-	valid_file[0]=0;
-	test_file[0]=0;
-	rnnlm_file[0]=0;
-	
-	alpha_set=0;
-	train_file_set=0;
-	
-	alpha=0.1;
-	beta=0.0000001;
-	//beta=0.00000;
-	alpha_divide=0;
-	logp=0;
-	llogp=-100000000;
-	iter=0;
-	
-	min_improvement=1.003;
-	
-	train_words=0;
-	train_cur_pos=0;
+		version=10;
+		filetype=TEXT;
 
-	vocab.initialize(100, 0, 100000000);
-	layer1.initialize(30);	
-	direct_size=0;
-	direct_order=0;
-	
-	bptt=0;
-	bptt_block=10;
-	bptt_history=NULL;
-	bptt_hidden=NULL;
-	bptt_syn0=NULL;
-	
-	gen=0;
+		use_lmprob=0;
+		lambda=0.75;
+		gradient_cutoff=15;
+		dynamic=0;
 
-	independent=0;
+		train_file[0]=0;
+		valid_file[0]=0;
+		test_file[0]=0;
+		rnnlm_file[0]=0;
 
-	syn_d=NULL;
-	syn_db=NULL;	
-	//
-	
-	rand_seed=1;
-	
-	class_size=100;
-	old_classes=0;
-	
-	one_iter=0;
-  maxIter=0;
-	
-	debug_mode=1;
-	srand(rand_seed);
-	
+		alpha_set=0;
+		train_file_set=0;
+
+		alpha=0.1;
+		beta=0.0000001;
+		//beta=0.00000;
+		alpha_divide=0;
+		logp=0;
+		llogp=-100000000;
+		iter=0;
+
+		min_improvement=1.003;
+
+		train_words=0;
+		train_cur_pos=0;
+
+		vocab.initialize(100, 0, 100000000);
+		layer1.initialize(30);	
+		direct_size=0;
+		direct_order=0;
+
+		gen=0;
+
+		independent=0;
+
+		syn_d=NULL;
+		syn_db=NULL;	
+		//
+
+		rand_seed=1;
+
+		class_size=100;
+		old_classes=0;
+
+		one_iter=0;
+		maxIter=0;
+
+		debug_mode=1;
+		srand(rand_seed);
+
     }
     
     ~CRnnLM()		//destructor, deallocates memory
     {
-	int i;
+		int i;
 	
-	if (layer0._neurons != NULL) {	    
-	    if (syn_d!=NULL) free(syn_d);
+		if (layer0._neurons != NULL) {	    
+		    if (syn_d!=NULL) free(syn_d);
 
-	    if (syn_db!=NULL) free(syn_db);
+		    if (syn_db!=NULL) free(syn_db);
 
-	    for (i=0; i<class_size; i++) free(class_words[i]);
-	    free(class_max_cn);
-	    free(class_word_count);
-	    free(class_words);
-
-	    if (bptt_history!=NULL) free(bptt_history);
-	    if (bptt_hidden!=NULL) free(bptt_hidden);
-            if (bptt_syn0!=NULL) free(bptt_syn0);
-	    
-	    //todo: free bptt variables too
-	}
+		    for (i=0; i<class_size; i++) free(class_words[i]);
+		    free(class_max_cn);
+		    free(class_word_count);
+		    free(class_words);
+		}
     }
     
     void setTrainFile(char *str);
@@ -218,8 +229,8 @@ public:
     void setCompressionLayerSize(int newsize) {layerc.initialize(newsize);}
     void setDirectSize(long long newsize) {direct_size=newsize;}
     void setDirectOrder(int newsize) {direct_order=newsize;}
-    void setBPTT(int newval) {bptt=newval;}
-    void setBPTTBlock(int newval) {bptt_block=newval;}
+    void setBPTT(int newval) {bp._bptt = newval;}
+    void setBPTTBlock(int newval) {bp._block=newval;}
     void setRandSeed(int newSeed) {rand_seed=newSeed; srand(rand_seed);}
     void setDebugMode(int newDebug) {debug_mode=newDebug;}
     void setAntiKasparek(int newAnti) {anti_k=newAnti;}
