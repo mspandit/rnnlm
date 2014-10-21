@@ -27,6 +27,7 @@ public:
 	}
 	void initialize(int, int);
 	void reset();
+	void shift(int, int);
 };
 
 #endif

@@ -34,3 +34,16 @@ void Backpropagation::reset() {
 			}
 	}
 }
+
+void Backpropagation::shift(int last_word, int layer_size) {
+	if (_bptt > 0) {		//shift memory needed for bptt to next time step
+		for (int a = _bptt + _block - 1; a > 0; a--)
+			_history[a] = _history[a - 1];
+		_history[0] = last_word;
+
+		for (int a = _bptt + _block - 1; a > 0; a--) 
+			for (int b = 0; b < layer_size; b++) {
+				_neurons[a * layer_size + b].copy(_neurons[(a - 1) * layer_size + b]);
+			}
+	}
+}

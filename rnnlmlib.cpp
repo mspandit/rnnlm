@@ -159,9 +159,9 @@ void CRnnLM::initialize()
 
 	saveWeights();
 
-	if (old_classes) {  	// old classes
+	if (old_classes) {
 		vocab.setClassIndexOld(wordClass._size);
-	} else {			// new classes
+	} else {
 		vocab.setClassIndexNew(wordClass._size);
 	}
     
@@ -761,9 +761,11 @@ void CRnnLM::computeErrorVectors(int word)
 void CRnnLM::adjustWeights(int counter, int b, int t, real beta2)
 {
 	if ((counter % 10) == 0)	//regularization is done every 10 steps
-		for (int a = 0; a < layer1._size; a++) matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac - matrix12._synapses[a + t].weight * beta2;
+		for (int a = 0; a < layer1._size; a++) 
+			matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac - matrix12._synapses[a + t].weight * beta2;
 	else
-		for (int a = 0; a < layer1._size; a++) matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
+		for (int a = 0; a < layer1._size; a++) 
+			matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
 }
 
 void CRnnLM::learn(int last_word, int word)
@@ -831,24 +833,24 @@ void CRnnLM::learn(int last_word, int word)
 	}
     
 	if (layerc._size>0) {
-		// propagate errors from portion of layer 2 into compression layer
+		// propagate errors from words portion of layer 2 into compression layer
 		matrixXvector(
 			layerc,
 			layer2,
 			matrixc2,
 			matrixc2._columns,
-			wordClass._words[vocab._words[word].class_index][0],
-			wordClass._words[vocab._words[word].class_index][0] + wordClass._word_count[vocab._words[word].class_index],
+			wordClass.firstWordInClass(vocab._words[word].class_index),
+			wordClass.lastWordInClass(vocab._words[word].class_index),
 			0,
 			layerc._size,
 			1
 		);
 	
-		t=wordClass._words[vocab._words[word].class_index][0]*layerc._size;
-		for (c=0; c<wordClass._word_count[vocab._words[word].class_index]; c++) {
-			b=wordClass._words[vocab._words[word].class_index][c];
+		t = wordClass.firstWordInClass(vocab._words[word].class_index) * layerc._size;
+		for (c = 0; c < wordClass.firstWordInClass(vocab._words[word].class_index); c++) {
+			b = wordClass._words[vocab._words[word].class_index][c];
 			adjustWeights(counter, b, t, beta2);
-			t+=layerc._size;
+			t += layerc._size;
 		}
 
 		// propagate errors from classes portion of layer 2 into compression layer
@@ -864,13 +866,13 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 	
-		t=vocab._size*layerc._size;
-		for (b=vocab._size; b<layer2._size; b++) {
+		t = vocab._size * layerc._size;
+		for (b = vocab._size; b < layer2._size; b++) {
 			adjustWeights(counter, b, t, beta2);
 			t += layerc._size;
 		}
 	
-		for (a=0; a<layerc._size; a++) layerc._neurons[a].er=layerc._neurons[a].er*layerc._neurons[a].ac*(1-layerc._neurons[a].ac);    //error derivation at compression layer
+		layerc.deriveError();
 	
 		// propagate errors from compression layer into layer 1
 		matrixXvector(
@@ -885,8 +887,9 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 	
-		for (b=0; b<layerc._size; b++) {
-			for (a=0; a<layer1._size; a++) matrix12._synapses[a+b*layer1._size].weight+=alpha*layerc._neurons[b].er*layer1._neurons[a].ac;	//weight 1->c update
+		for (b = 0; b < layerc._size; b++) {
+			for (a = 0; a < layer1._size; a++) 
+				matrix12._synapses[a + b * layer1._size].weight += alpha * layerc._neurons[b].er * layer1._neurons[a].ac;	//weight 1->c update
 		}
 	}
 	else
@@ -1054,7 +1057,7 @@ void CRnnLM::copyHiddenLayerToInput()
 
 void CRnnLM::trainNet()
 {
-	int a, b, word, last_word, wordcn;
+	int a, word, last_word, wordcn;
 	char log_name[200];
 	FILE *fi, *flog;
 	clock_t start, now;
@@ -1094,7 +1097,9 @@ void CRnnLM::trainNet()
 		fi=fopen(train_file, "rb");
 		last_word=0;
         
-		if (counter>0) for (a=0; a<counter; a++) word=readWordIndex(fi);	//this will skip words that were already learned if the training was interrupted
+		if (counter>0) 
+			for (a=0; a<counter; a++) 
+				word = readWordIndex(fi);	//this will skip words that were already learned if the training was interrupted
         
 		start=clock();
         
@@ -1119,22 +1124,15 @@ void CRnnLM::trainNet()
 			computeProbDist(last_word, word);      //compute probability distribution
 			if (feof(fi)) break;        //end of file: test on validation data, iterate till convergence
 
-			if (word!=-1) logp += log10(layer2._neurons[vocab._size + vocab._words[word].class_index].ac * layer2._neurons[word].ac);
+			if (word != -1) 
+				logp += log10(layer2._neurons[vocab._size + vocab._words[word].class_index].ac * layer2._neurons[word].ac);
     	    
 			if ((logp != logp) || (isinf(logp))) {
 				printf("\nNumerical error %d %f %f\n", word, layer2._neurons[word].ac, layer2._neurons[vocab._words[word].class_index + vocab._size].ac);
 				exit(1);
 			}
 
-			if (bp._bptt>0) {		//shift memory needed for bptt to next time step
-				for (a = bp._bptt + bp._block - 1; a > 0; a--) bp._history[a] = bp._history[a - 1];
-				bp._history[0] = last_word;
-		
-				for (a = bp._bptt + bp._block - 1; a > 0; a--) 
-					for (b = 0; b < layer1._size; b++) {
-						bp._neurons[a * layer1._size + b].copy(bp._neurons[(a - 1) * layer1._size+b]);
-					}
-			}
+			bp.shift(last_word, layer1._size);
 
 			learn(last_word, word);
             
