@@ -121,29 +121,6 @@ void CRnnLM::initialize()
 {
 	int a, b, cl;
 
-	// layer2 AKA  : OOOOOOO...O OOOOOO...O
-	// output layer: ^^^^^^^^^^^ ^^^^^^^^^^
-	//               vocab._size class_size
-	//
-	//           layer2._size            layer2._size
-	//           vvvvvvvvvvvv            vvvvvvvvvvvv
-	// matrix12: XXXXXXXX...X  matrixc2: XXXXXXXX...X
-	//           ^^^^^^^^^^^^            ^^^^^^^^^^^^
-	//           layer1._size            layerc._size
-	//
-	// layer1 AKA  : OO...O
-	// hidden layer: ^^^^^^
-	//
-	//           layer1._size
-	//           vvvvvvvvvvvv
-	// matrix01: XXXXXXXX...X
-	//           ^^^^^^^^^^^^
-	//           layer0._size
-	//
-	// layer0: OOOOOOO...O OOOOOOOO...O
-	//         ^^^^^^^^^^^ ^^^^^^^^^^^^
-	//         vocab._size layer1._size
-
 	layer0.initialize(vocab._size + layer1._size);
 	layer2.initialize(vocab._size + class_size);
 	matrix01.initialize(layer0._size, layer1._size);
@@ -944,7 +921,7 @@ void CRnnLM::learn(int last_word, int word)
 	}
     
 	if (layerc._size>0) {
-		// propagate error from portion of layer 2 into compression layer
+		// propagate errors from portion of layer 2 into compression layer
 		matrixXvector(
 			layerc,
 			layer2,
@@ -964,7 +941,7 @@ void CRnnLM::learn(int last_word, int word)
 			t+=layerc._size;
 		}
 
-		// propagate error from classes portion of layer 2 into compression layer
+		// propagate errors from classes portion of layer 2 into compression layer
 		matrixXvector(
 			layerc,
 			layer2,
@@ -985,7 +962,7 @@ void CRnnLM::learn(int last_word, int word)
 	
 		for (a=0; a<layerc._size; a++) layerc._neurons[a].er=layerc._neurons[a].er*layerc._neurons[a].ac*(1-layerc._neurons[a].ac);    //error derivation at compression layer
 	
-		// propagate errors from entire compression layer into layer 1
+		// propagate errors from compression layer into layer 1
 		matrixXvector(
 			layer1,
 			layerc,
@@ -1004,7 +981,7 @@ void CRnnLM::learn(int last_word, int word)
 	}
 	else
 	{
-		// propagate error from portion of output layer to layer 1 for vocabulary
+		// propagate errors from portion of output layer to layer 1 
 		matrixXvector(
 			layer1,
 			layer2,
@@ -1024,7 +1001,7 @@ void CRnnLM::learn(int last_word, int word)
 			t += layer1._size;
 		}
 
-		// propagate error from classes portion of output layer to layer 1
+		// propagate errors from classes portion of output layer to layer 1
 		matrixXvector(
 			layer1,
 			layer2,
@@ -1641,7 +1618,7 @@ void CRnnLM::testGen()
 		// forward pass 1->2 for words
 		for (c=0; c<class_word_count[cla]; c++) layer2._neurons[class_words[cla][c]].ac=0;
 		
-		// propagate activation from portion of layer1 to layer 2 (???)
+		// propagate activation from layer1 to portion of layer 2
 		matrixXvector(
 			layer2,
 			layer1,
