@@ -7,6 +7,7 @@
 #include "synapse.h"
 #include "vocabulary.h"
 #include "layer.h"
+#include "matrix.h"
 #include "rnnlmlib.h"
 #include "options.h"
 

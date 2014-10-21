@@ -94,15 +94,15 @@ protected:
     //backup used in n-bset rescoring:
    	Layer layer1b2;
 
-    Synapse *syn0;		//weights between input and hidden layer
-    Synapse *syn1;		//weights between hidden and output layer (or hidden and compression if compression>0)
-    Synapse *sync;		//weights between hidden and compression layer
+	Matrix matrix01;
+    Matrix matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
+    Matrix matrix1c;		//weights between hidden and compression layer
     direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     
 
-    Synapse *syn0b;
-    Synapse *syn1b;
-    Synapse *syncb;
+    Matrix matrix01b;
+    Matrix matrix12b;
+	Matrix matrix1cb;
     direct_t *syn_db;
     
     
@@ -157,15 +157,9 @@ public:
 	gen=0;
 
 	independent=0;
-	
-	syn0=NULL;
-	syn1=NULL;
-	sync=NULL;
+
 	syn_d=NULL;
 	syn_db=NULL;	
-	syn0b=NULL;
-	syn1b=NULL;
-	syncb=NULL;
 	//
 	
 	rand_seed=1;
@@ -186,21 +180,10 @@ public:
 	int i;
 	
 	if (layer0._neurons != NULL) {	    
-	    free(syn0);
-	    free(syn1);
-	    if (sync!=NULL) free(sync);
-	    
 	    if (syn_d!=NULL) free(syn_d);
 
 	    if (syn_db!=NULL) free(syn_db);
 
-	    //
-	    
-	    free(syn0b);
-	    free(syn1b);
-	    if (syncb!=NULL) free(syncb);
-	    //
-	    
 	    for (i=0; i<class_size; i++) free(class_words[i]);
 	    free(class_max_cn);
 	    free(class_word_count);
@@ -271,11 +254,6 @@ public:
 	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
 	void layer2_normalizeActivation(int);
-	void matrix_copy_matrix(Synapse [], Synapse [], int, int);
-	void matrix_print(Synapse [], int, int, FILE *);
-	void matrix_write(Synapse [], int, int, FILE *);
-	void matrix_scan(Synapse [], int, int, FILE *);
-	void matrix_read(Synapse [], int, int, FILE *);
 	
 	void randomizeWeights(Synapse *, int, int);
 	void sigmoidActivation(Neuron *, int);

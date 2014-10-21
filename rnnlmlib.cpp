@@ -19,6 +19,7 @@
 #include "synapse.h"
 #include "vocabulary.h"
 #include "layer.h"
+#include "matrix.h"
 #include "rnnlmlib.h"
 
 ///// include blas
@@ -69,12 +70,6 @@ int CRnnLM::readWordIndex(FILE *fin)
 	return vocab.search(word);
 }
 
-void CRnnLM::matrix_copy_matrix(Synapse dest[], Synapse src[], int rows, int columns) {
-	for (int b = 0; b < rows; b++)
-		for (int a = 0; a < columns; a++) 
-			dest[a + b * columns].weight = src[a + b * columns].weight;	
-}
-
 void CRnnLM::saveWeights()      //saves current weights and unit activations
 {
 	layer0b.copy(layer0);
@@ -82,11 +77,10 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
 	layercb.copy(layerc);
 	layer2b.copy(layer2);
     
-	matrix_copy_matrix(syn0b, syn0, layer1._size, layer0._size);
-    
-	matrix_copy_matrix(syn1b, syn1, layerc._size, layer1._size);
+	matrix01b.copy(matrix01);
+	matrix12b.copy(matrix12);
 	if (layerc._size>0) {
-		matrix_copy_matrix(syncb, sync, layer2._size, layerc._size);
+		matrix1cb.copy(matrix1c);
 	}
 }
 
@@ -97,11 +91,10 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 	layerc.clear();
 	layer2.clear();
 
-	matrix_copy_matrix(syn0, syn0b, layer1._size, layer0._size);
-    
-	matrix_copy_matrix(syn1, syn1b, layerc._size, layer1._size);
+	matrix01.copy(matrix01b);
+	matrix12.copy(matrix12b);
 	if (layerc._size>0) {
-		matrix_copy_matrix(sync, syncb, layer2._size, layerc._size);
+		matrix1c.copy(matrix1cb);
 	}
 }
 
@@ -117,20 +110,26 @@ void CRnnLM::initialize()
 	layerc._neurons = (Neuron *)calloc(layerc._size, sizeof(Neuron));
 	layer2._neurons = (Neuron *)calloc(layer2._size, sizeof(Neuron));
 
-	syn0 = (Synapse *)calloc(layer0._size * layer1._size, sizeof(Synapse));
-	if (layerc._size==0)
-		syn1=(Synapse *)calloc(layer1._size * layer2._size, sizeof(Synapse));
-	else {
-		syn1=(Synapse *)calloc(layer1._size * layerc._size, sizeof(Synapse));
-		sync=(Synapse *)calloc(layerc._size * layer2._size, sizeof(Synapse));
+	matrix01._synapses = (Synapse *)calloc(layer0._size * layer1._size, sizeof(Synapse));
+	matrix01._rows = layer0._size;
+	matrix01._columns = layer1._size;
+	
+	matrix12._synapses=(Synapse *)calloc(layer1._size * layer2._size, sizeof(Synapse));
+	matrix12._rows = layer1._size;
+	matrix12._columns = layer2._size;
+	
+	if (layerc._size != 0) {
+		matrix1c._synapses=(Synapse *)calloc(layerc._size * layer2._size, sizeof(Synapse));
+		matrix1c._rows = layerc._size;
+		matrix1c._columns = layer2._size;
 	}
 
-	if (syn1 == NULL) {
+	if (matrix12._synapses == NULL) {
 		printf("Memory allocation failed\n");
 		exit(1);
 	}
     
-	if (layerc._size > 0) if (sync == NULL) {
+	if (layerc._size > 0) if (matrix1c._synapses == NULL) {
 		printf("Memory allocation failed\n");
 		exit(1);
 	}
@@ -153,36 +152,38 @@ void CRnnLM::initialize()
 	layer2b._neurons = (Neuron *)calloc(layer2._size, sizeof(Neuron));
 	layer2b._size = layer2._size;
 
-	syn0b=(Synapse *)calloc(layer0._size*layer1._size, sizeof(Synapse));
-	if (layerc._size==0)
-		syn1b=(Synapse *)calloc(layer1._size*layer2._size, sizeof(Synapse));
-	else {
-		syn1b=(Synapse *)calloc(layer1._size*layerc._size, sizeof(Synapse));
-		syncb=(Synapse *)calloc(layerc._size*layer2._size, sizeof(Synapse));
+	matrix01b._synapses = (Synapse *)calloc(layer0._size*layer1._size, sizeof(Synapse));
+	matrix01b._rows = layer0._size;
+	matrix01b._columns = layer1._size;
+	
+	if (layerc._size==0) {
+		matrix12b._synapses =(Synapse *)calloc(layer1._size*layer2._size, sizeof(Synapse));
+		matrix12b._rows = layer1._size;
+		matrix12b._columns = layer2._size;
+	} else {
+		matrix12b._synapses =(Synapse *)calloc(layer1._size*layerc._size, sizeof(Synapse));
+		matrix12b._rows = layer1._size;
+		matrix12b._columns = layerc._size;
+		matrix1cb._synapses =(Synapse *)calloc(layerc._size*layer2._size, sizeof(Synapse));
+		matrix1cb._rows = layerc._size;
+		matrix1cb._columns = layer2._size;
 	}
 
-	if (syn1b==NULL) {
+	if (matrix12b._synapses ==NULL) {
 		printf("Memory allocation failed\n");
 		exit(1);
 	}
 
-	layer0.clearActivation();
-	layer0.clearError();
+	layer0.clear();
+	layer1.clear();
+	layerc.clear();
+	layer2.clear();
 
-	layer1.clearActivation();
-	layer1.clearError();
+	randomizeWeights(matrix01._synapses, layer0._size, layer1._size);
 
-	layerc.clearActivation();
-	layerc.clearError();
-
-	layer2.clearActivation();
-	layer2.clearError();
-
-	randomizeWeights(syn0, layer0._size, layer1._size);
-
-	randomizeWeights(syn1, layer2._size, layer1._size);
+	randomizeWeights(matrix12._synapses, layer2._size, layer1._size);
 	if (layerc._size>0) {
-		randomizeWeights(sync, layer2._size, layerc._size);
+		randomizeWeights(matrix1c._synapses, layer2._size, layerc._size);
 	}
     
 	long long aa;
@@ -239,22 +240,6 @@ void CRnnLM::initialize()
 		if (class_word_count[cl]+2>=class_max_cn[cl]) {
 			class_max_cn[cl]+=10;
 			class_words[cl]=(int *)realloc(class_words[cl], class_max_cn[cl]*sizeof(int));
-		}
-	}
-}
-
-void CRnnLM::matrix_print(Synapse synapses[], int rows, int columns, FILE *fo) {
-	for (long long b = 0; b < rows; b++) {
-		for (int a = 0; a < columns; a++) {
-			synapses[a + b * columns].printWeight(fo);
-		}
-	}
-}
-
-void CRnnLM::matrix_write(Synapse synapses[], int rows, int columns, FILE *fo) {
-	for (long long b = 0; b < rows; b++) {
-		for (int a = 0; a < columns; a++) {
-			syn0[a + b * columns].writeWeight(fo);
 		}
 	}
 }
@@ -322,34 +307,34 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	//////////
 	if (filetype==TEXT) {
 		fprintf(fo, "\nWeights 0->1:\n");
-		matrix_print(syn0, layer1._size, layer0._size, fo);
+		matrix01.print(fo);
 	}
 	if (filetype==BINARY) {
-		matrix_write(syn0, layer1._size, layer0._size, fo);
+		matrix01.write(fo);
 	}
 	/////////
 	if (filetype==TEXT) {
 		if (layerc._size>0) {
 			fprintf(fo, "\n\nWeights 1->c:\n");
-			matrix_print(syn1, layerc._size, layer1._size, fo);
+			matrix12.print(fo);
     	
 			fprintf(fo, "\n\nWeights c->2:\n");
-			matrix_print(sync, layer2._size, layerc._size, fo);
+			matrix1c.print(fo);
 		}
 		else
 		{
 			fprintf(fo, "\n\nWeights 1->2:\n");
-			matrix_print(syn1, layer2._size, layer1._size, fo);
+			matrix12.print(fo);
 		}
 	}
 	if (filetype==BINARY) {
 		if (layerc._size>0) {
-			matrix_write(syn1, layerc._size, layer1._size, fo);
-    		matrix_write(sync, layer2._size, layerc._size, fo);
+			matrix12.write(fo);
+    		matrix1c.write(fo);
 		}
 		else
 		{
-			matrix_write(syn1, layer1._size, layer2._size, fo);
+			matrix12.write(fo);
 		}
 	}
 	////////
@@ -382,22 +367,6 @@ void CRnnLM::goToDelimiter(int delim, FILE *fi)
 		if (feof(fi)) {
 			printf("Unexpected end of file\n");
 			exit(1);
-		}
-	}
-}
-
-void CRnnLM::matrix_scan(Synapse synapses[], int rows, int columns, FILE *fi) {
-	for (int b = 0; b < rows; b++) {
-		for (int a = 0; a < columns; a++) {
-			synapses[a + b * columns].scanWeight(fi);
-		}
-	}
-}
-
-void CRnnLM::matrix_read(Synapse synapses[], int rows, int columns, FILE *fi) {
-	for (int b = 0; b < rows; b++) {
-		for (int a = 0; a < columns; a++) {
-			synapses[a + b * columns].readWeight(fi);
 		}
 	}
 }
@@ -528,34 +497,34 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	//
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
-		matrix_scan(syn0, layer1._size, layer0._size, fi);
+		matrix01.scan(fi);
 	}
 	if (filetype==BINARY) {
-		matrix_read(syn0, layer1._size, layer0._size, fi);
+		matrix01.read(fi);
 	}
 	//
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);
 		if (layerc._size==0) {	//no compress layer
-			matrix_scan(syn1, layer2._size, layer1._size, fi);
+			matrix12.scan(fi);
 		}
 		else
 		{
-			matrix_scan(syn1, layerc._size, layer1._size, fi);
+			matrix12.scan(fi);
 			   	
 			goToDelimiter(':', fi);
 
-			matrix_scan(sync, layer2._size, layerc._size, fi);
+			matrix1c.scan(fi);
 		}
 	}
 	if (filetype==BINARY) {
 		if (layerc._size==0) {	//no compress layer
-			matrix_read(syn1, layer2._size, layer1._size, fi);
+			matrix12.read(fi);
 		}
 		else
 		{				//with compress layer
-			matrix_read(syn1, layerc._size, layer1._size, fi);
-			matrix_read(sync, layer2._size, layerc._size, fi);
+			matrix12.read(fi);
+			matrix1c.read(fi);
 		}
 	}
 	//
@@ -776,16 +745,16 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	layerc.clearActivation();
     
 	// Propagate activation of prior hidden layer into current hidden layer
-	matrixXvector(layer1._neurons, layer0._neurons, syn0, layer0._size, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
+	matrixXvector(layer1._neurons, layer0._neurons, matrix01._synapses, layer0._size, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
 
 	// Propagate activation of last word into new hidden layer
 	if (last_word != -1)
-		layer1.receiveActivation(layer0, last_word, syn0);
+		layer1.receiveActivation(layer0, last_word, matrix01._synapses);
 
 	//activate 1      --sigmoid
     sigmoidActivation(layer1._neurons, layer1._size);
 	if (layerc._size>0) {
-		matrixXvector(layerc._neurons, layer1._neurons, syn1, layer1._size, 0, layerc._size, 0, layer1._size, 0);
+		matrixXvector(layerc._neurons, layer1._neurons, matrix12._synapses, layer1._size, 0, layerc._size, 0, layer1._size, 0);
 		//activate compression      --sigmoid
 		sigmoidActivation(layerc._neurons, layerc._size);
 	}
@@ -795,12 +764,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
     
 	if (layerc._size>0) {
 		// Propagate activation of compression layer into output layer
-		matrixXvector(layer2._neurons, layerc._neurons, sync, layerc._size, vocab._size, layer2._size, 0, layerc._size, 0);
+		matrixXvector(layer2._neurons, layerc._neurons, matrix1c._synapses, layerc._size, vocab._size, layer2._size, 0, layerc._size, 0);
 	}
 	else
 	{
 		// Propagate activation of layer 1 into output layer
-		matrixXvector(layer2._neurons, layer1._neurons, syn1, layer1._size, vocab._size, layer2._size, 0, layer1._size, 0);
+		matrixXvector(layer2._neurons, layer1._neurons, matrix12._synapses, layer1._size, vocab._size, layer2._size, 0, layer1._size, 0);
 	}
 
 	//apply direct connections to classes
@@ -841,12 +810,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		clearClassActivation(word);
 		if (layerc._size>0) {
 			// Propagate activation of compression layer into output layer
-			matrixXvector(layer2._neurons, layerc._neurons, sync, layerc._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 0);
+			matrixXvector(layer2._neurons, layerc._neurons, matrix1c._synapses, layerc._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 0);
 		}
 		else
 		{
 			// Propagate activation of layer1 into output layer
-			matrixXvector(layer2._neurons, layer1._neurons, syn1, layer1._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 0);
+			matrixXvector(layer2._neurons, layer1._neurons, matrix12._synapses, layer1._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 0);
 		}
 	}
     
@@ -896,9 +865,9 @@ void CRnnLM::computeErrorVectors(int word)
 void CRnnLM::adjustWeights(int counter, int b, int t, real beta2)
 {
 	if ((counter % 10) == 0)	//regularization is done every 10 steps
-		for (int a = 0; a < layer1._size; a++) syn1[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac - syn1[a + t].weight * beta2;
+		for (int a = 0; a < layer1._size; a++) matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac - matrix12._synapses[a + t].weight * beta2;
 	else
-		for (int a = 0; a < layer1._size; a++) syn1[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
+		for (int a = 0; a < layer1._size; a++) matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
 }
 
 void CRnnLM::learn(int last_word, int word)
@@ -966,7 +935,7 @@ void CRnnLM::learn(int last_word, int word)
 	}
     
 	if (layerc._size>0) {
-		matrixXvector(layerc._neurons, layer2._neurons, sync, layerc._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 1);
+		matrixXvector(layerc._neurons, layer2._neurons, matrix1c._synapses, layerc._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 1);
 	
 		t=class_words[vocab._words[word].class_index][0]*layerc._size;
 		for (c=0; c<class_word_count[vocab._words[word].class_index]; c++) {
@@ -975,7 +944,7 @@ void CRnnLM::learn(int last_word, int word)
 			t+=layerc._size;
 		}
 
-		matrixXvector(layerc._neurons, layer2._neurons, sync, layerc._size, vocab._size, layer2._size, 0, layerc._size, 1);		//propagates errors 2->c for classes
+		matrixXvector(layerc._neurons, layer2._neurons, matrix1c._synapses, layerc._size, vocab._size, layer2._size, 0, layerc._size, 1);		//propagates errors 2->c for classes
 	
 		t=vocab._size*layerc._size;
 		for (b=vocab._size; b<layer2._size; b++) {
@@ -985,16 +954,16 @@ void CRnnLM::learn(int last_word, int word)
 	
 		for (a=0; a<layerc._size; a++) layerc._neurons[a].er=layerc._neurons[a].er*layerc._neurons[a].ac*(1-layerc._neurons[a].ac);    //error derivation at compression layer
 	
-		matrixXvector(layer1._neurons, layerc._neurons, syn1, layer1._size, 0, layerc._size, 0, layer1._size, 1);		//propagates errors c->1
+		matrixXvector(layer1._neurons, layerc._neurons, matrix12._synapses, layer1._size, 0, layerc._size, 0, layer1._size, 1);		//propagates errors c->1
 	
 		for (b=0; b<layerc._size; b++) {
-			for (a=0; a<layer1._size; a++) syn1[a+b*layer1._size].weight+=alpha*layerc._neurons[b].er*layer1._neurons[a].ac;	//weight 1->c update
+			for (a=0; a<layer1._size; a++) matrix12._synapses[a+b*layer1._size].weight+=alpha*layerc._neurons[b].er*layer1._neurons[a].ac;	//weight 1->c update
 		}
 	}
 	else
 	{
 		// propagate error from output layer to layer 1 for vocabulary
-		matrixXvector(layer1._neurons, layer2._neurons, syn1, layer1._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 1);
+		matrixXvector(layer1._neurons, layer2._neurons, matrix12._synapses, layer1._size, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 1);
     	
 		t = class_words[vocab._words[word].class_index][0] * layer1._size;
 		for (c = 0; c < class_word_count[vocab._words[word].class_index]; c++) {
@@ -1004,7 +973,7 @@ void CRnnLM::learn(int last_word, int word)
 		}
 
 		// propagate error from output layer to layer 1 for classes
-		matrixXvector(layer1._neurons, layer2._neurons, syn1, layer1._size, vocab._size, layer2._size, 0, layer1._size, 1);		//propagates errors 2->1 for classes
+		matrixXvector(layer1._neurons, layer2._neurons, matrix12._synapses, layer1._size, vocab._size, layer2._size, 0, layer1._size, 1);		//propagates errors 2->1 for classes
 	
 		t = vocab._size * layer1._size;
 		for (b = vocab._size; b < layer2._size; b++) {
@@ -1021,16 +990,16 @@ void CRnnLM::learn(int last_word, int word)
 		a=last_word;
 		if (a!=-1) {
 			if ((counter%10)==0)
-				for (b=0; b<layer1._size; b++) syn0[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac - syn0[a+b*layer0._size].weight*beta2;
+				for (b=0; b<layer1._size; b++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac - matrix01._synapses[a+b*layer0._size].weight*beta2;
 			else
-				for (b=0; b<layer1._size; b++) syn0[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
+				for (b=0; b<layer1._size; b++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
 		}
 
 		if ((counter%10)==0) {
-			for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) syn0[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac - syn0[a+b*layer0._size].weight*beta2;
+			for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac - matrix01._synapses[a+b*layer0._size].weight*beta2;
 		}
 		else {
-			for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) syn0[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
+			for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) matrix01._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
 		}
 	}
 	else		//BPTT
@@ -1050,9 +1019,9 @@ void CRnnLM::learn(int last_word, int word)
 	    
 				for (a=layer0._size-layer1._size; a<layer0._size; a++) layer0._neurons[a].er=0;
 		
-				matrixXvector(layer0._neurons, layer1._neurons, syn0, layer0._size, 0, layer1._size, layer0._size-layer1._size, layer0._size, 1);		//propagates errors 1->0
+				matrixXvector(layer0._neurons, layer1._neurons, matrix01._synapses, layer0._size, 0, layer1._size, layer0._size-layer1._size, layer0._size, 1);		//propagates errors 1->0
 				for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) {
-					//layer0._neurons[a].er += layer1._neurons[b].er * syn0[a+b*layer0._size].weight;
+					//layer0._neurons[a].er += layer1._neurons[b].er * matrix01._synapses[a+b*layer0._size].weight;
 					bptt_syn0[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
 				}
 	    
@@ -1079,26 +1048,26 @@ void CRnnLM::learn(int last_word, int word)
 			for (b=0; b<layer1._size; b++) {		//copy temporary syn0
 				if ((counter%10)==0) {
 					for (a=layer0._size-layer1._size; a<layer0._size; a++) {
-						syn0[a+b*layer0._size].weight+=bptt_syn0[a+b*layer0._size].weight - syn0[a+b*layer0._size].weight*beta2;
+						matrix01._synapses[a+b*layer0._size].weight+=bptt_syn0[a+b*layer0._size].weight - matrix01._synapses[a+b*layer0._size].weight*beta2;
 						bptt_syn0[a+b*layer0._size].weight=0;
 					}
 				}
 				else {
 					for (a=layer0._size-layer1._size; a<layer0._size; a++) {
-						syn0[a+b*layer0._size].weight+=bptt_syn0[a+b*layer0._size].weight;
+						matrix01._synapses[a+b*layer0._size].weight+=bptt_syn0[a+b*layer0._size].weight;
 						bptt_syn0[a+b*layer0._size].weight=0;
 					}
 				}
 	    
 				if ((counter%10)==0) {
 					for (step=0; step<bptt+bptt_block-2; step++) if (bptt_history[step]!=-1) {
-						syn0[bptt_history[step]+b*layer0._size].weight+=bptt_syn0[bptt_history[step]+b*layer0._size].weight - syn0[bptt_history[step]+b*layer0._size].weight*beta2;
+						matrix01._synapses[bptt_history[step]+b*layer0._size].weight+=bptt_syn0[bptt_history[step]+b*layer0._size].weight - matrix01._synapses[bptt_history[step]+b*layer0._size].weight*beta2;
 						bptt_syn0[bptt_history[step]+b*layer0._size].weight=0;
 					}
 				}
 				else {
 					for (step=0; step<bptt+bptt_block-2; step++) if (bptt_history[step]!=-1) {
-						syn0[bptt_history[step]+b*layer0._size].weight+=bptt_syn0[bptt_history[step]+b*layer0._size].weight;
+						matrix01._synapses[bptt_history[step]+b*layer0._size].weight+=bptt_syn0[bptt_history[step]+b*layer0._size].weight;
 						bptt_syn0[bptt_history[step]+b*layer0._size].weight=0;
 					}
 				}
@@ -1597,7 +1566,7 @@ void CRnnLM::testGen()
 		// !!!!!!!!  THIS WILL WORK ONLY IF CLASSES ARE CONTINUALLY DEFINED IN VOCAB !!! (like class 10 = words 11 12 13; not 11 12 16)  !!!!!!!!
 		// forward pass 1->2 for words
 		for (c=0; c<class_word_count[cla]; c++) layer2._neurons[class_words[cla][c]].ac=0;
-		matrixXvector(layer2._neurons, layer1._neurons, syn1, layer1._size, class_words[cla][0], class_words[cla][0]+class_word_count[cla], 0, layer1._size, 0);
+		matrixXvector(layer2._neurons, layer1._neurons, matrix12._synapses, layer1._size, class_words[cla][0], class_words[cla][0]+class_word_count[cla], 0, layer1._size, 0);
         
 		//apply direct connections to words
 		if (word!=-1) if (direct_size>0) {
