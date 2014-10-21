@@ -752,12 +752,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	layer2_clearActivation(layer2._neurons, vocab._size, layer2._size);
     
 	if (layerc._size>0) {
-		// Propagate activation of compression layer into output layer
+		// Propagate activation of compression layer into class portion of output layer
 		matrixXvector(layer2, layerc, matrixc2, matrixc2._rows, vocab._size, layer2._size, 0, layerc._size, 0);
 	}
 	else
 	{
-		// Propagate activation of layer 1 into output layer
+		// Propagate activation of layer 1 into class portion of output layer
 		matrixXvector(layer2, layer1, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 0);
 	}
 
@@ -798,7 +798,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	if (word!=-1) {
 		clearClassActivation(word);
 		if (layerc._size>0) {
-			// Propagate activation of portion of compression layer into output layer
+			// Propagate activation of compression layer into portion of output layer
 			matrixXvector(
 				layer2,
 				layerc,
@@ -813,7 +813,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		}
 		else
 		{
-			// Propagate activation of portion of layer1 into output layer
+			// Propagate activation of layer1 into portion of output layer
 			matrixXvector(
 				layer2,
 				layer1,
