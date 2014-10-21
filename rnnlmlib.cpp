@@ -732,10 +732,10 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	layer1.clearActivation();
 	layerc.clearActivation();
     
-	// Propagate activation of prior hidden layer (part of input layer) into current hidden layer
+	// Propagate activation of prior-hidden-layer portion of input layer into current hidden layer
 	matrixXvector(layer1, layer0, matrix01, matrix01._rows, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
 
-	// Propagate activation of last word into new hidden layer
+	// Propagate activation of last word into current hidden layer
 	if (last_word != -1)
 		layer1.receiveActivation(layer0, last_word, matrix01._synapses);
 
@@ -1080,8 +1080,20 @@ void CRnnLM::learn(int last_word, int word)
 				}
 	    
 				for (a=layer0._size-layer1._size; a<layer0._size; a++) layer0._neurons[a].er=0;
-		
-				matrixXvector(layer0, layer1, matrix01, matrix01._rows, 0, layer1._size, layer0._size-layer1._size, layer0._size, 1);		//propagates errors 1->0
+
+				// propagate errors from entire layer 1 to prior-state portion of input layer
+				matrixXvector(
+					layer0,
+					layer1,
+					matrix01,
+					matrix01._rows,
+					0,
+					layer1._size,
+					layer0._size-layer1._size,
+					layer0._size,
+					1
+				);
+
 				for (b=0; b<layer1._size; b++) for (a=layer0._size-layer1._size; a<layer0._size; a++) {
 					//layer0._neurons[a].er += layer1._neurons[b].er * matrix01._synapses[a+b*layer0._size].weight;
 					bp._synapses[a+b*layer0._size].weight+=alpha*layer1._neurons[b].er*layer0._neurons[a].ac;
@@ -1628,7 +1640,19 @@ void CRnnLM::testGen()
 		// !!!!!!!!  THIS WILL WORK ONLY IF CLASSES ARE CONTINUALLY DEFINED IN VOCAB !!! (like class 10 = words 11 12 13; not 11 12 16)  !!!!!!!!
 		// forward pass 1->2 for words
 		for (c=0; c<class_word_count[cla]; c++) layer2._neurons[class_words[cla][c]].ac=0;
-		matrixXvector(layer2, layer1, matrix12, matrix12._columns, class_words[cla][0], class_words[cla][0]+class_word_count[cla], 0, layer1._size, 0);
+		
+		// propagate activation from portion of layer1 to layer 2 (???)
+		matrixXvector(
+			layer2,
+			layer1,
+			matrix12,
+			matrix12._columns,
+			class_words[cla][0],
+			class_words[cla][0] + class_word_count[cla],
+			0,
+			layer1._size,
+			0
+		);
         
 		//apply direct connections to words
 		if (word!=-1) if (direct_size>0) {
