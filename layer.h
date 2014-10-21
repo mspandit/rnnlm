@@ -25,6 +25,7 @@ public:
 	void read(FILE *);
 	void setActivation(real);
 	void receiveActivation(Layer &, int, Synapse []);
+	void sigmoidActivation();
 };
 
 #endif

@@ -66,3 +66,9 @@ void Layer::receiveActivation(Layer &src, int src_index, Synapse matrix[]) {
 	for (int index = 0; index < _size; index++)
 		_neurons[index].ac += src._neurons[src_index].ac * matrix[src_index + index * src._size].weight;
 }
+
+void Layer::sigmoidActivation()
+{
+	for (int layer_index = 0; layer_index < _size; layer_index++) 
+		_neurons[layer_index].sigmoidActivation();
+}

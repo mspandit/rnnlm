@@ -678,12 +678,6 @@ void CRnnLM::slowMatrixXvector(
 	}
 }
 
-void CRnnLM::sigmoidActivation(Neuron *neurons, int num_neurons)
-{
-	for (int layer_index = 0; layer_index < num_neurons; layer_index++) 
-		neurons[layer_index].sigmoidActivation();
-}
-
 void CRnnLM::layer2_clearActivation(Neuron neurons[], int first_neuron, int num_neurons)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
@@ -738,7 +732,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	layer1.clearActivation();
 	layerc.clearActivation();
     
-	// Propagate activation of prior hidden layer into current hidden layer
+	// Propagate activation of prior hidden layer (part of input layer) into current hidden layer
 	matrixXvector(layer1, layer0, matrix01, matrix01._rows, 0, layer1._size, layer0._size-layer1._size, layer0._size, 0);
 
 	// Propagate activation of last word into new hidden layer
@@ -746,11 +740,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		layer1.receiveActivation(layer0, last_word, matrix01._synapses);
 
 	//activate 1      --sigmoid
-    sigmoidActivation(layer1._neurons, layer1._size);
+    layer1.sigmoidActivation();
 	if (layerc._size>0) {
+		// Propagate activation of current hidden layer into current compression layer
 		matrixXvector(layerc, layer1, matrix12, matrix12._rows, 0, layerc._size, 0, layer1._size, 0);
 		//activate compression      --sigmoid
-		sigmoidActivation(layerc._neurons, layerc._size);
+		layerc.sigmoidActivation();
 	}
         
 	//1->2 class
@@ -803,13 +798,33 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	if (word!=-1) {
 		clearClassActivation(word);
 		if (layerc._size>0) {
-			// Propagate activation of compression layer into output layer
-			matrixXvector(layer2, layerc, matrixc2, matrixc2._rows, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 0);
+			// Propagate activation of portion of compression layer into output layer
+			matrixXvector(
+				layer2,
+				layerc,
+				matrixc2,
+				matrixc2._rows,
+				class_words[vocab._words[word].class_index][0],
+				class_words[vocab._words[word].class_index][0] + class_word_count[vocab._words[word].class_index],
+				0, 
+				layerc._size, 
+				0
+			);
 		}
 		else
 		{
-			// Propagate activation of layer1 into output layer
-			matrixXvector(layer2, layer1, matrix12, matrix12._rows, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 0);
+			// Propagate activation of portion of layer1 into output layer
+			matrixXvector(
+				layer2,
+				layer1,
+				matrix12,
+				matrix12._rows,
+				class_words[vocab._words[word].class_index][0],
+				class_words[vocab._words[word].class_index][0] + class_word_count[vocab._words[word].class_index],
+				0,
+				layer1._size,
+				0
+			);
 		}
 	}
     
@@ -929,7 +944,18 @@ void CRnnLM::learn(int last_word, int word)
 	}
     
 	if (layerc._size>0) {
-		matrixXvector(layerc, layer2, matrixc2, matrixc2._columns, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layerc._size, 1);
+		// propagate error from portion of layer 2 into compression layer
+		matrixXvector(
+			layerc,
+			layer2,
+			matrixc2,
+			matrixc2._columns,
+			class_words[vocab._words[word].class_index][0],
+			class_words[vocab._words[word].class_index][0] + class_word_count[vocab._words[word].class_index],
+			0,
+			layerc._size,
+			1
+		);
 	
 		t=class_words[vocab._words[word].class_index][0]*layerc._size;
 		for (c=0; c<class_word_count[vocab._words[word].class_index]; c++) {
@@ -938,7 +964,18 @@ void CRnnLM::learn(int last_word, int word)
 			t+=layerc._size;
 		}
 
-		matrixXvector(layerc, layer2, matrixc2, matrixc2._columns, vocab._size, layer2._size, 0, layerc._size, 1);		//propagates errors 2->c for classes
+		// propagate error from classes portion of layer 2 into compression layer
+		matrixXvector(
+			layerc,
+			layer2,
+			matrixc2,
+			matrixc2._columns,
+			vocab._size,
+			layer2._size,
+			0, 
+			layerc._size,
+			1
+		);
 	
 		t=vocab._size*layerc._size;
 		for (b=vocab._size; b<layer2._size; b++) {
@@ -948,7 +985,18 @@ void CRnnLM::learn(int last_word, int word)
 	
 		for (a=0; a<layerc._size; a++) layerc._neurons[a].er=layerc._neurons[a].er*layerc._neurons[a].ac*(1-layerc._neurons[a].ac);    //error derivation at compression layer
 	
-		matrixXvector(layer1, layerc, matrix12, matrix12._columns, 0, layerc._size, 0, layer1._size, 1);		//propagates errors c->1
+		// propagate errors from entire compression layer into layer 1
+		matrixXvector(
+			layer1,
+			layerc,
+			matrix12,
+			matrix12._columns,
+			0,
+			layerc._size,
+			0,
+			layer1._size,
+			1
+		);
 	
 		for (b=0; b<layerc._size; b++) {
 			for (a=0; a<layer1._size; a++) matrix12._synapses[a+b*layer1._size].weight+=alpha*layerc._neurons[b].er*layer1._neurons[a].ac;	//weight 1->c update
@@ -956,8 +1004,18 @@ void CRnnLM::learn(int last_word, int word)
 	}
 	else
 	{
-		// propagate error from output layer to layer 1 for vocabulary
-		matrixXvector(layer1, layer2, matrix12, matrix12._rows, class_words[vocab._words[word].class_index][0], class_words[vocab._words[word].class_index][0]+class_word_count[vocab._words[word].class_index], 0, layer1._size, 1);
+		// propagate error from portion of output layer to layer 1 for vocabulary
+		matrixXvector(
+			layer1,
+			layer2,
+			matrix12,
+			matrix12._rows,
+			class_words[vocab._words[word].class_index][0],
+			class_words[vocab._words[word].class_index][0] + class_word_count[vocab._words[word].class_index],
+			0,
+			layer1._size,
+			1
+		);
     	
 		t = class_words[vocab._words[word].class_index][0] * layer1._size;
 		for (c = 0; c < class_word_count[vocab._words[word].class_index]; c++) {
@@ -966,8 +1024,18 @@ void CRnnLM::learn(int last_word, int word)
 			t += layer1._size;
 		}
 
-		// propagate error from output layer to layer 1 for classes
-		matrixXvector(layer1, layer2, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 1);		//propagates errors 2->1 for classes
+		// propagate error from classes portion of output layer to layer 1
+		matrixXvector(
+			layer1,
+			layer2,
+			matrix12,
+			matrix12._rows,
+			vocab._size,
+			layer2._size,
+			0,
+			layer1._size,
+			1
+		);
 	
 		t = vocab._size * layer1._size;
 		for (b = vocab._size; b < layer2._size; b++) {

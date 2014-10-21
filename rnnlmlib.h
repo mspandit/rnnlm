@@ -263,7 +263,6 @@ public:
 	void layer2_normalizeActivation(int);
 	
 	void randomizeWeights(Synapse *, int, int);
-	void sigmoidActivation(Neuron *, int);
     void computeProbDist(int last_word, int word);
     void learn(int last_word, int word);
     void copyHiddenLayerToInput();
