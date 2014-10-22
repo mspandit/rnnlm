@@ -71,7 +71,7 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
 	layerc.backup(0);
 	layer2.backup(0);
     
-	matrix01b.copy(matrix01);
+	matrix01.backup();
 	matrix12b.copy(matrix12);
 	if (layerc._size>0) {
 		matrixc2b.copy(matrixc2);
@@ -85,7 +85,7 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 	layerc.clear();
 	layer2.clear();
 
-	matrix01.copy(matrix01b);
+	matrix01.restore();
 	matrix12.copy(matrix12b);
 	if (layerc._size>0) {
 		matrixc2.copy(matrixc2b);
@@ -98,7 +98,6 @@ void CRnnLM::initialize()
 	layer0.clear();
 
 	matrix01.initialize(layer0._size, layer1._size);
-	matrix01b.initialize(layer0._size, layer1._size);
 	matrix01.randomize();
 
 	layer2.initialize(vocab._size + wordClass._size);

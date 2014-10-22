@@ -81,3 +81,16 @@ void Matrix::adjustWeightsBeta2(int row, real alpha, real beta2, Neuron row_neur
 	for (int column = 0; column < _columns; column++) 
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
 }
+
+void MatrixBackup::initialize(int rows, int columns) {
+	Matrix::initialize(rows, columns);
+	_backup.initialize(rows, columns);
+}
+
+void MatrixBackup::backup() {
+	_backup.copy(*this);
+}
+
+void MatrixBackup::restore() {
+	this->copy(_backup);
+}

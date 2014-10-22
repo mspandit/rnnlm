@@ -28,4 +28,14 @@ public:
 	void adjustWeightsBeta2(int, real, real, Neuron [], Neuron []);
 };
 
+class MatrixBackup : public Matrix {
+private:
+	Matrix _backup;
+	
+public:
+	void initialize(int, int);
+	void backup();
+	void restore();
+};
+
 #endif
