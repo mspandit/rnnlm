@@ -3,10 +3,12 @@
 #define _BACKPROPAGATION_H_
 
 class Backpropagation {
+	static const int __history_buffer = 10;
+    int *_history;
+
 public:
     int _bptt;
     int _block;
-    int *_history;
     Neuron *_neurons;
     Synapse *_synapses;
 	int _rows;
@@ -29,6 +31,8 @@ public:
 	void reset();
 	void shift(int, int);
 	void adjustRowWeights(int, real, Neuron []);
+	int getHistory(int step) { return _history[step]; }
+	void clearHistory();
 };
 
 #endif

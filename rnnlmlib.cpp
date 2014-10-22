@@ -961,7 +961,7 @@ void CRnnLM::learn(int last_word, int word)
 				layer1.deriveError();
 
 				//weight update 1->0
-				a = bp._history[step];
+				a = bp.getHistory(step);
 				if (a != -1)
 					bp.adjustRowWeights(a, alpha, layer1._neurons);
 
@@ -1019,16 +1019,16 @@ void CRnnLM::learn(int last_word, int word)
 					}
 				}
 	    
-				if ((counter%10)==0) {
-					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp._history[step]!=-1) {
-						matrix01._synapses[bp._history[step]+b*layer0._size].weight+=bp._synapses[bp._history[step]+b*layer0._size].weight - matrix01._synapses[bp._history[step]+b*layer0._size].weight*beta2;
-						bp._synapses[bp._history[step]+b*layer0._size].weight=0;
+				if ((counter % 10)==0) {
+					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.getHistory(step)!=-1) {
+						matrix01._synapses[bp.getHistory(step)+b*layer0._size].weight+=bp._synapses[bp.getHistory(step)+b*layer0._size].weight - matrix01._synapses[bp.getHistory(step)+b*layer0._size].weight*beta2;
+						bp._synapses[bp.getHistory(step)+b*layer0._size].weight=0;
 					}
 				}
 				else {
-					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp._history[step]!=-1) {
-						matrix01._synapses[bp._history[step]+b*layer0._size].weight+=bp._synapses[bp._history[step]+b*layer0._size].weight;
-						bp._synapses[bp._history[step]+b*layer0._size].weight=0;
+					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.getHistory(step)!=-1) {
+						matrix01._synapses[bp.getHistory(step)+b*layer0._size].weight+=bp._synapses[bp.getHistory(step)+b*layer0._size].weight;
+						bp._synapses[bp.getHistory(step)+b*layer0._size].weight=0;
 					}
 				}
 			}
@@ -1078,7 +1078,7 @@ void CRnnLM::trainNet()
 		printf("Iter: %3d\tAlpha: %f\t   ", iter, alpha);
 		fflush(stdout);
         
-		if (bp._bptt>0) for (a=0; a<bp._bptt+bp._block; a++) bp._history[a]=0;
+		bp.clearHistory();
 		for (a=0; a<MAX_NGRAM_ORDER; a++) history[a]=0;
 
 		//TRAINING PHASE
@@ -1228,7 +1228,7 @@ void CRnnLM::trainNet()
 
 void CRnnLM::testNet()
 {
-	int a, b, word, last_word, wordcn;
+	int a, word, last_word, wordcn;
 	FILE *fi, *flog, *lmprob=NULL;
 	real prob_other, log_other, log_combine;
 	double d;
@@ -1265,7 +1265,8 @@ void CRnnLM::testNet()
 	wordcn=0;
 	copyHiddenLayerToInput();
     
-	if (bp._bptt>0) for (a=0; a<bp._bptt+bp._block; a++) bp._history[a]=0;
+	bp.clearHistory();
+
 	for (a=0; a<MAX_NGRAM_ORDER; a++) history[a]=0;
 	if (independent) netReset();
     
@@ -1306,16 +1307,8 @@ void CRnnLM::testNet()
 			fprintf(flog, "\n");
 		}
 
-		if (dynamic>0) {
-			if (bp._bptt>0) {
-				for (a=bp._bptt+bp._block-1; a>0; a--) bp._history[a]=bp._history[a-1];
-				bp._history[0]=last_word;
-                                    
-				for (a=bp._bptt+bp._block-1; a>0; a--) for (b=0; b<layer1._size; b++) {
-					bp._neurons[a*layer1._size+b].copy(bp._neurons[(a-1)*layer1._size+b]);
-				}
-			}
-			//
+		if (dynamic > 0) {
+			bp.shift(last_word, layer1._size);
 			alpha=dynamic;
 			learn(last_word, word);    //dynamic update
 		}

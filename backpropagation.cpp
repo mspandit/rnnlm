@@ -10,7 +10,7 @@ void Backpropagation::initialize(int rows, int columns) {
 	_rows = rows;
 	_columns = columns;
 	if (_bptt > 0) {
-		_history = (int *)calloc((_bptt + _block + 10), sizeof(int));
+		_history = (int *)calloc((_bptt + _block + __history_buffer), sizeof(int));
 		_neurons = (Neuron *)calloc((_bptt + _block + 1) * columns, sizeof(Neuron));
 		for (int a = 0; a < (_bptt + _block) * columns; a++) {
 			_history[a] = -1;
@@ -37,11 +37,11 @@ void Backpropagation::reset() {
 
 void Backpropagation::shift(int last_word, int layer_size) {
 	if (_bptt > 0) {		//shift memory needed for bptt to next time step
-		for (int a = _bptt + _block - 1; a > 0; a--)
+		for (int a = (_bptt + _block - 1); a > 0; a--)
 			_history[a] = _history[a - 1];
 		_history[0] = last_word;
 
-		for (int a = _bptt + _block - 1; a > 0; a--) 
+		for (int a = (_bptt + _block - 1); a > 0; a--) 
 			for (int b = 0; b < layer_size; b++) {
 				_neurons[a * layer_size + b].copy(_neurons[(a - 1) * layer_size + b]);
 			}
@@ -51,4 +51,10 @@ void Backpropagation::shift(int last_word, int layer_size) {
 void Backpropagation::adjustRowWeights(int row, real alpha, Neuron neurons[]) {
 	for (int column = 0; column < _columns; column++)
 		_synapses[row + column * _rows].weight += alpha * neurons[column].er;  // * layer0._neurons[a].ac; --should be always set to 1
+}
+
+void Backpropagation::clearHistory() {
+	if (_bptt > 0) 
+		for (int a = 0; a < _bptt + _block; a++) // ignores __history_buffer (???) 
+			_history[a] = 0;
 }
