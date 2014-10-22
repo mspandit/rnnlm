@@ -80,10 +80,8 @@ protected:
     LayerBackup layer2;		//neurons in output layer
     
 	MatrixBackup matrix01;
-    Matrix matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
-    Matrix matrix12b;
-    Matrix matrixc2;		//weights between hidden and compression layer
-	Matrix matrixc2b;
+    MatrixBackup matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
+    MatrixBackup matrixc2;		//weights between hidden and compression layer
 
     direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     direct_t *syn_db;

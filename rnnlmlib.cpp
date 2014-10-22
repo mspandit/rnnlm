@@ -68,13 +68,14 @@ void CRnnLM::saveWeights()      //saves current weights and unit activations
 {
 	layer0.backup(0);
 	layer1.backup(0);
-	layerc.backup(0);
 	layer2.backup(0);
     
 	matrix01.backup();
-	matrix12b.copy(matrix12);
+	matrix12.backup();
+
 	if (layerc._size>0) {
-		matrixc2b.copy(matrixc2);
+		layerc.backup(0);
+		matrixc2.backup();
 	}
 }
 
@@ -82,13 +83,14 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 {
 	layer0.clear();
 	layer1.clear();
-	layerc.clear();
 	layer2.clear();
 
 	matrix01.restore();
-	matrix12.copy(matrix12b);
+	matrix12.restore();
+
 	if (layerc._size>0) {
-		matrixc2.copy(matrixc2b);
+		layerc.clear();
+		matrixc2.restore();
 	}
 }
 
@@ -105,15 +107,12 @@ void CRnnLM::initialize()
 	
 	if (layerc._size == 0) {
 		matrix12.initialize(layer1._size, layer2._size);
-		matrix12b.initialize(layer1._size, layer2._size);
 		matrix12.randomize();
 	} else {
 		matrix12.initialize(layer1._size, layerc._size);
-		matrix12b.initialize(layer1._size, layerc._size);
 		matrix12.randomize();
 
 		matrixc2.initialize(layerc._size, layer2._size);
-		matrixc2b.initialize(layerc._size, layer2._size);
 		matrixc2.randomize();
 	}
     
