@@ -19,7 +19,10 @@ const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 
-class CRnnLM{
+class CRnnLM {
+private:
+	void direct_applyToClasses(Neuron []);
+		
 protected:
     char train_file[MAX_STRING];
     char valid_file[MAX_STRING];
@@ -177,14 +180,8 @@ public:
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
     void setRegularization(real newBeta) {beta=newBeta;}
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
-    void setHiddenLayerSize(int newsize) {
-		layer1.initialize(newsize);
-		layer1.clear();
-	}
-    void setCompressionLayerSize(int newsize) {
-		layerc.initialize(newsize);
-		layerc.clear();
-	}
+    void setHiddenLayerSize(int);
+    void setCompressionLayerSize(int);
     void setDirectSize(long long newsize) {direct_size=newsize;}
     void setDirectOrder(int newsize) {direct_order=newsize;}
     void setBPTT(int newval) {bp._bptt = newval;}

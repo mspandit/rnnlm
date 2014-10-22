@@ -30,7 +30,16 @@ extern "C" {
 #include <cblas.h>
 }
 #endif
-//
+
+void CRnnLM::setHiddenLayerSize(int newsize) {
+	layer1.initialize(newsize);
+	layer1.clear();
+}
+
+void CRnnLM::setCompressionLayerSize(int newsize) {
+	layerc.initialize(newsize);
+	layerc.clear();
+}
 
 void CRnnLM::setTrainFile(char *str)
 {
@@ -96,12 +105,16 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 
 void CRnnLM::initialize()
 {
+	// layer 0 includes neurons for vocabulary and 
+	// neurons for prior layer 1
 	layer0.initialize(vocab._size + layer1._size);
 	layer0.clear();
 
 	matrix01.initialize(layer0._size, layer1._size);
 	matrix01.randomize();
 
+	// Output layer 2 includes neurons for vocabulary and
+	// neurons for word classes
 	layer2.initialize(vocab._size + wordClass._size);
 	layer2.clear();
 	
@@ -109,9 +122,11 @@ void CRnnLM::initialize()
 		matrix12.initialize(layer1._size, layer2._size);
 		matrix12.randomize();
 	} else {
+		// matrix12 actually maps layer 1 to layer c
 		matrix12.initialize(layer1._size, layerc._size);
 		matrix12.randomize();
 
+		// matrix c2 maps layer c to output layer 2
 		matrixc2.initialize(layerc._size, layer2._size);
 		matrixc2.randomize();
 	}
@@ -121,9 +136,7 @@ void CRnnLM::initialize()
 		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct_size * (long long)sizeof(direct_t));
 		exit(1);
 	}
-    
-	long long aa;
-	for (aa=0; aa<direct_size; aa++) syn_d[aa]=0;
+	for (long long aa = 0; aa < direct_size; aa++) syn_d[aa]=0;
 
 	bp.initialize(layer0._size, layer1._size);
 
@@ -578,79 +591,68 @@ void CRnnLM::clearClassActivation(int word)
 		layer2._neurons[wordClass._words[vocab._words[word].class_index][c]].ac = 0;
 }
 
+void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
+	if (direct_size>0) {
+		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to syn_d that contains hash parameters
+		for (int a = 0; a < direct_order; a++) hash[a] = 0;
+		for (int a = 0; a < direct_order; a++) {
+			if ((a > 0) && (history[a - 1] == -1)) 
+				break;	//if OOV was in history, do not use this N-gram feature and higher orders
+			hash[a] = PRIMES[0] * PRIMES[1];
+	    	    
+			for (int b = 1; b <= a; b++) 
+				hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);	//update hash value based on words from the history
+			hash[a] = hash[a] % (direct_size / 2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
+		}
+	
+		for (int a = vocab._size; a < layer2._size; a++) {
+			for (int b = 0; b < direct_order; b++) 
+				if (hash[b]) {
+					neurons[a].ac += syn_d[hash[b]];		//apply current parameter and move to the next one
+					hash[b]++;
+				} else 
+					break;
+		}
+	}
+}
+
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	int a, b, c;
 
-	layer1.clearActivation();
-	layerc.clearActivation();
-	layer2.clearActivationRange(vocab._size, layer2._size);
-    
 	//propagate 0->1
-    
-	matrixXvector( // Propagate activation
-		layer1, // to current hidden layer
-		layer0, // from input layer
-		matrix01, // using weight matrix
-		matrix01._rows,
-		0, 
-		layer1._size, // full hidden layer
-		layer0._size - layer1._size,  
-		layer0._size, // portion storing prior hidden layer
-		0
-	);
+	layer1.clearActivation();
+	
+	// Propagate activation of portion from input layer storing prior hidden layer to full current hidden layer,
+	// using weight matrix
+	matrixXvector(layer1, layer0, matrix01, matrix01._rows, 0, layer1._size, layer0._size - layer1._size, layer0._size, 0);
 
 	// Propagate activation of last word (only) into current hidden layer
 	if (last_word != -1) {
 		layer0._neurons[last_word].ac = 1;
 		layer1.receiveActivation(layer0, last_word, matrix01._synapses);
 	}
-	
 	//activate 1      --sigmoid
     layer1.applySigmoid();
 	
 	if (layerc._size>0) {
+		layerc.clearActivation();
 		// Propagate activation of current hidden layer into current compression layer
 		matrixXvector(layerc, layer1, matrix12, matrix12._rows, 0, layerc._size, 0, layer1._size, 0);
 		//activate compression      --sigmoid
 		layerc.applySigmoid();
-	}
-        
-	//1->2 class
-    
-	if (layerc._size>0) {
-		// Propagate activation of compression layer into class portion of output layer
+		//1->2 class
+		layer2.clearActivationRange(vocab._size, layer2._size);
+		// Propagate activation of current compression layer into class portion of output layer
 		matrixXvector(layer2, layerc, matrixc2, matrixc2._rows, vocab._size, layer2._size, 0, layerc._size, 0);
-	}
-	else
-	{
+	} else {
+		//1->2 class
+		layer2.clearActivationRange(vocab._size, layer2._size);
 		// Propagate activation of layer 1 into class portion of output layer
 		matrixXvector(layer2, layer1, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 0);
 	}
 
-	//apply direct connections to classes
-	if (direct_size>0) {
-		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to syn_d that contains hash parameters
-		for (a=0; a<direct_order; a++) hash[a] = 0;
-		for (a=0; a<direct_order; a++) {
-			b=0;
-			if ((a > 0) && (history[a - 1] == -1)) 
-				break;	//if OOV was in history, do not use this N-gram feature and higher orders
-			hash[a] = PRIMES[0] * PRIMES[1];
-	    	    
-			for (b = 1; b <= a; b++) hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);	//update hash value based on words from the history
-			hash[a] = hash[a] % (direct_size / 2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
-		}
-	
-		for (a = vocab._size; a < layer2._size; a++) {
-			for (b = 0; b < direct_order; b++) 
-				if (hash[b]) {
-					layer2._neurons[a].ac += syn_d[hash[b]];		//apply current parameter and move to the next one
-					hash[b]++;
-				} else 
-					break;
-		}
-	}
+	direct_applyToClasses(layer2._neurons);
 
 	layer2.normalizeActivation(vocab._size);
  
@@ -662,7 +664,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	if (word != -1) {
 		clearClassActivation(word);
 		if (layerc._size > 0) {
-			// Propagate activation of compression layer into class portion of output layer
+			// Propagate activation of compression layer into words portion of output layer
 			matrixXvector(
 				layer2,
 				layerc,
@@ -677,7 +679,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		}
 		else
 		{
-			// Propagate activation of layer1 into class portion of output layer
+			// Propagate activation of layer1 into words portion of output layer
 			matrixXvector(
 				layer2,
 				layer1,
@@ -694,13 +696,13 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		//apply direct connections to words
 		if (direct_size > 0) {
 			unsigned long long hash[MAX_NGRAM_ORDER];
-			for (a=0; a<direct_order; a++) hash[a] = 0;
-			for (a=0; a<direct_order; a++) {
-				b=0;
+			for (a = 0; a < direct_order; a++) hash[a] = 0;
+			for (a = 0; a < direct_order; a++) {
 				if ((a > 0) && (history[a - 1] == -1)) 
 					break;
 				hash[a] = PRIMES[0] * PRIMES[1] * (unsigned long long)(vocab._words[word].class_index + 1);
-				for (b = 1; b <= a; b++) hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);
+				for (b = 1; b <= a; b++) 
+					hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);
 				hash[a] = (hash[a] % (direct_size / 2)) + (direct_size / 2);
 			}
 	
