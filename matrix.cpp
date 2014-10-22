@@ -63,9 +63,17 @@ void Matrix::randomize()
 			_synapses[src_index + dest_index * _columns].weight = random(-0.1, 0.1) + random(-0.1, 0.1) + random(-0.1, 0.1);
 }
 
+void Matrix::adjustRowWeights(int row, real alpha, Neuron row_neurons[], Neuron column_neurons[]) {
+	for (int column = 0; column < _columns; column++) 
+		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac;
+}
+
 void Matrix::adjustWeights(real alpha, Neuron row_neurons[], Neuron column_neurons[]) {
-	for (int column = 0; column < _columns; column++) {
-		for (int row = 0; row < _rows; row++) 
-			_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac;	//weight 1->c update
-	}
+	for (int row = 0; row < _rows; row++)
+		adjustRowWeights(row, alpha, row_neurons, column_neurons);
+}
+
+void Matrix::adjustWeightsBeta2(int row, real alpha, real beta2, Neuron row_neurons[], Neuron column_neurons[]) {
+	for (int column = 0; column < _columns; column++) 
+		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
 }

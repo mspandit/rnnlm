@@ -938,22 +938,17 @@ void CRnnLM::learn(int last_word, int word)
 		a=last_word;
 		if (a!=-1) {
 			if ((counter % 10) == 0)
-				for (b = 0; b < layer1._size; b++) 
-					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac - matrix01._synapses[a + b * layer0._size].weight * beta2;
+				matrix01.adjustWeightsBeta2(a, alpha, beta2, layer0._neurons, layer1._neurons);
 			else
-				for (b = 0; b < layer1._size; b++) 
-					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac;
+				matrix01.adjustRowWeights(a, alpha, layer0._neurons, layer1._neurons);
 		}
 
 		if ((counter % 10) == 0) {
-			for (b = 0; b < layer1._size; b++) 
-				for (a=layer0._size-layer1._size; a<layer0._size; a++) 
-					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac - matrix01._synapses[a + b * layer0._size].weight * beta2;
-		}
-		else {
-			for (b = 0; b < layer1._size; b++)
-				for (a = layer0._size - layer1._size; a < layer0._size; a++) 
-					matrix01._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er * layer0._neurons[a].ac;
+			for (a = layer0._size - layer1._size; a < layer0._size; a++)
+				matrix01.adjustWeightsBeta2(a, alpha, beta2, layer0._neurons, layer1._neurons);
+		} else {
+			for (a = layer0._size - layer1._size; a < layer0._size; a++) 
+				matrix01.adjustRowWeights(a, alpha, layer0._neurons, layer1._neurons);
 		}
 	}
 	else		//BPTT
@@ -962,15 +957,13 @@ void CRnnLM::learn(int last_word, int word)
 			bp._neurons[b].copy(layer1._neurons[b]);
 	
 		if (((counter % bp._block) == 0) || (independent && (word == 0))) {
-			for (step = 0; step < bp._bptt + bp._block-2; step++) {
+			for (step = 0; step < bp._bptt + bp._block - 2; step++) {
 				layer1.deriveError();
 
 				//weight update 1->0
 				a = bp._history[step];
 				if (a != -1)
-				for (b = 0; b < layer1._size; b++) {
-					bp._synapses[a + b * layer0._size].weight += alpha * layer1._neurons[b].er;//*layer0._neurons[a].ac; --should be always set to 1
-				}
+					bp.adjustRowWeights(a, alpha, layer1._neurons);
 
 				for (a = layer0._size - layer1._size; a < layer0._size; a++)
 					layer0._neurons[a].er = 0;
