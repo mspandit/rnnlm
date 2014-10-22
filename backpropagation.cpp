@@ -62,9 +62,9 @@ void Backpropagation::shift(int last_word) {
 	}
 }
 
-void Backpropagation::adjustRowWeights(int row, real alpha, Neuron neurons[]) {
+void Backpropagation::adjustRowWeights(int row, real alpha, real activation, Neuron neurons[]) {
 	for (int column = 0; column < _columns; column++)
-		_synapses[row + column * _rows].weight += alpha * neurons[column].er;  // * layer0._neurons[a].ac; --should be always set to 1
+		_synapses[row + column * _rows].weight += alpha * neurons[column].er * activation;
 }
 
 void Backpropagation::clearHistory() {

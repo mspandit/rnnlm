@@ -20,7 +20,7 @@ public:
 	void initialize(int, int);
 	void reset();
 	void shift(int);
-	void adjustRowWeights(int, real, Neuron []);
+	void adjustRowWeights(int, real, real, Neuron []);
 	int wordFromPast(int step) { return _word_history[step]; }
 	void clearHistory();
 };
