@@ -3,8 +3,9 @@
 #define _BACKPROPAGATION_H_
 
 class Backpropagation {
+private:
 	static const int __history_buffer = 10;
-    int *_history;
+    int *_word_history;
 
 public:
     int _bptt;
@@ -14,24 +15,13 @@ public:
 	int _rows;
 	int _columns;
 	
-	Backpropagation() {
-		_bptt = 0;
-		_block = 10;
-		_history = NULL;
-		_neurons = NULL;
-		_synapses = NULL;
-	}
-	
-	~Backpropagation() {
-		if (NULL != _history) free(_history);
-		if (NULL != _neurons) free(_neurons);
-		if (NULL != _synapses) free(_synapses);
-	}
+	Backpropagation();
+	~Backpropagation();
 	void initialize(int, int);
 	void reset();
-	void shift(int, int);
+	void shift(int);
 	void adjustRowWeights(int, real, Neuron []);
-	int getHistory(int step) { return _history[step]; }
+	int wordFromPast(int step) { return _word_history[step]; }
 	void clearHistory();
 };
 

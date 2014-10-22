@@ -56,8 +56,11 @@ int Vocabulary::search(char *word)
     
 	hash = getHash(word);
     
-	if (_hash[hash]==-1) return -1;
-	if (!strcmp(word, _words[_hash[hash]].word)) return _hash[hash];
+	if (_hash[hash]==-1)
+		return -1;
+
+	if (!strcmp(word, _words[_hash[hash]].word))
+		return _hash[hash];
     
 	for (a=0; a<_size; a++) {				//search in vocabulary
 		if (!strcmp(word, _words[a].word)) {

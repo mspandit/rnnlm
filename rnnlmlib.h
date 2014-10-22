@@ -65,7 +65,9 @@ protected:
     long long direct_size;
     int direct_order;
     int history[MAX_NGRAM_ORDER];
-
+	void direct_clearHistory();
+	void direct_push(int);
+	
 	Backpropagation bp;
     
     int gen;

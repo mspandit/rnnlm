@@ -52,14 +52,16 @@ void CRnnLM::setRnnLMFile(char *str)
 	strcpy(rnnlm_file, str);
 }
 
+// returns -1 if EOF or not in vocab
 int CRnnLM::readWordIndex(FILE *fin)
 {
 	char word[MAX_STRING];
 
 	vocab.readWord(word, fin);
-	if (feof(fin)) return -1;
-
-	return vocab.search(word);
+	if (feof(fin))
+		return -1;
+	else
+		return vocab.search(word);
 }
 
 void CRnnLM::saveWeights()      //saves current weights and unit activations
@@ -493,6 +495,11 @@ void CRnnLM::netFlush()   //cleans all activations and error vectors
 	layer2.clear();
 }
 
+void CRnnLM::direct_clearHistory() {
+	for (int a = 0; a < MAX_NGRAM_ORDER; a++)
+		history[a] = 0;
+}
+
 void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 {
 	layer1.setActivation(1.0);
@@ -501,8 +508,7 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 
 	bp.reset();
 
-	for (int a = 0; a < MAX_NGRAM_ORDER; a++)
-		history[a] = 0;
+	direct_clearHistory();
 }
 
 // Propagate activation from the source layer to the destination layer
@@ -961,7 +967,7 @@ void CRnnLM::learn(int last_word, int word)
 				layer1.deriveError();
 
 				//weight update 1->0
-				a = bp.getHistory(step);
+				a = bp.wordFromPast(step);
 				if (a != -1)
 					bp.adjustRowWeights(a, alpha, layer1._neurons);
 
@@ -1020,15 +1026,15 @@ void CRnnLM::learn(int last_word, int word)
 				}
 	    
 				if ((counter % 10)==0) {
-					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.getHistory(step)!=-1) {
-						matrix01._synapses[bp.getHistory(step)+b*layer0._size].weight+=bp._synapses[bp.getHistory(step)+b*layer0._size].weight - matrix01._synapses[bp.getHistory(step)+b*layer0._size].weight*beta2;
-						bp._synapses[bp.getHistory(step)+b*layer0._size].weight=0;
+					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.wordFromPast(step)!=-1) {
+						matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight - matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight*beta2;
+						bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
 					}
 				}
 				else {
-					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.getHistory(step)!=-1) {
-						matrix01._synapses[bp.getHistory(step)+b*layer0._size].weight+=bp._synapses[bp.getHistory(step)+b*layer0._size].weight;
-						bp._synapses[bp.getHistory(step)+b*layer0._size].weight=0;
+					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.wordFromPast(step)!=-1) {
+						matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight;
+						bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
 					}
 				}
 			}
@@ -1043,6 +1049,12 @@ void CRnnLM::copyHiddenLayerToInput()
 	for (a=0; a<layer1._size; a++) {
 		layer0._neurons[a+layer0._size-layer1._size].ac=layer1._neurons[a].ac;
 	}
+}
+
+void CRnnLM::direct_push(int last_word) {
+	for (int a = MAX_NGRAM_ORDER - 1; a > 0; a--) 
+		history[a] = history[a-1];
+	history[0] = last_word;
 }
 
 void CRnnLM::trainNet()
@@ -1079,7 +1091,7 @@ void CRnnLM::trainNet()
 		fflush(stdout);
         
 		bp.clearHistory();
-		for (a=0; a<MAX_NGRAM_ORDER; a++) history[a]=0;
+		direct_clearHistory();
 
 		//TRAINING PHASE
 		netFlush();
@@ -1089,7 +1101,7 @@ void CRnnLM::trainNet()
         
 		if (counter>0) 
 			for (a=0; a<counter; a++) 
-				word = readWordIndex(fi);	//this will skip words that were already learned if the training was interrupted
+				(void) readWordIndex(fi);	//this will skip words that were already learned if the training was interrupted
         
 		start=clock();
         
@@ -1110,8 +1122,8 @@ void CRnnLM::trainNet()
 				saveNet();
 			}
         
-			word=readWordIndex(fi);     //read next word
-			computeProbDist(last_word, word);      //compute probability distribution
+			word = readWordIndex(fi);     //read next word
+			computeProbDist(last_word, word);
 			if (feof(fi)) break;        //end of file: test on validation data, iterate till convergence
 
 			if (word != -1) 
@@ -1122,18 +1134,18 @@ void CRnnLM::trainNet()
 				exit(1);
 			}
 
-			bp.shift(last_word, layer1._size);
+			bp.shift(last_word);
 
 			learn(last_word, word);
             
 			copyHiddenLayerToInput();
 
-			if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
+			if (last_word != -1) 
+				layer0._neurons[last_word].ac = 0;  //delete previous activation
 
-			last_word=word;
+			last_word = word;
             
-			for (a=MAX_NGRAM_ORDER-1; a>0; a--) history[a]=history[a-1];
-			history[0]=last_word;
+			direct_push(last_word);
 
 			if (independent && (word==0)) netReset();
 		}
@@ -1185,9 +1197,7 @@ void CRnnLM::trainNet()
 			if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
 
 			last_word=word;
-            
-			for (a=MAX_NGRAM_ORDER-1; a>0; a--) history[a]=history[a-1];
-			history[0]=last_word;
+            direct_push(last_word);
 
 			if (independent && (word==0)) netReset();
 		}
@@ -1228,7 +1238,7 @@ void CRnnLM::trainNet()
 
 void CRnnLM::testNet()
 {
-	int a, word, last_word, wordcn;
+	int word, last_word, wordcn;
 	FILE *fi, *flog, *lmprob=NULL;
 	real prob_other, log_other, log_combine;
 	double d;
@@ -1266,8 +1276,8 @@ void CRnnLM::testNet()
 	copyHiddenLayerToInput();
     
 	bp.clearHistory();
+	direct_clearHistory();
 
-	for (a=0; a<MAX_NGRAM_ORDER; a++) history[a]=0;
 	if (independent) netReset();
     
 	while (1) {
@@ -1308,7 +1318,7 @@ void CRnnLM::testNet()
 		}
 
 		if (dynamic > 0) {
-			bp.shift(last_word, layer1._size);
+			bp.shift(last_word);
 			alpha=dynamic;
 			learn(last_word, word);    //dynamic update
 		}
@@ -1317,9 +1327,7 @@ void CRnnLM::testNet()
 		if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
 
 		last_word=word;
-        
-		for (a=MAX_NGRAM_ORDER-1; a>0; a--) history[a]=history[a-1];
-		history[0]=last_word;
+        direct_push(last_word);
 
 		if (independent && (word==0)) netReset();
 	}
@@ -1346,7 +1354,7 @@ void CRnnLM::testNet()
 
 void CRnnLM::testNbest()
 {
-	int a, word, last_word, wordcn;
+	int word, last_word, wordcn;
 	FILE *fi, *flog, *lmprob=NULL;
 	float prob_other; //has to be float so that %f works in fscanf
 	real log_other, log_combine, senp;
@@ -1366,8 +1374,7 @@ void CRnnLM::testNbest()
 
 	//TEST PHASE
 	//netFlush();
-    
-	for (a=0; a<MAX_NGRAM_ORDER; a++) history[a]=0;
+    direct_clearHistory();
 
 	if (!strcmp(test_file, "-")) fi=stdin; else fi=fopen(test_file, "rb");
     
@@ -1458,9 +1465,7 @@ void CRnnLM::testNbest()
 		}
 
 		last_word=word;
-        
-		for (a=MAX_NGRAM_ORDER-1; a>0; a--) history[a]=history[a-1];
-		history[0]=last_word;
+        direct_push(last_word);
 
 		if (independent && (word==0)) netReset();
 	}
@@ -1601,9 +1606,7 @@ void CRnnLM::testGen()
 		if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
 
 		last_word=word;
-        
-		for (a=MAX_NGRAM_ORDER-1; a>0; a--) history[a]=history[a-1];
-		history[0]=last_word;
+        direct_push(last_word);
 
 		if (independent && (word==0)) netReset();
         
