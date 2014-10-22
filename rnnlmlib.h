@@ -137,6 +137,9 @@ public:
 
 		vocab.initialize(100, 0, 100000000);
 		layer1.initialize(30);	
+		layer1b.initialize(layer1._size);
+		layer1b2.initialize(layer1._size);
+		layer1.clear();
 		direct_size=0;
 		direct_order=0;
 
@@ -189,8 +192,17 @@ public:
     void setLearningRate(real newAlpha) {alpha=newAlpha;}
     void setRegularization(real newBeta) {beta=newBeta;}
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
-    void setHiddenLayerSize(int newsize) {layer1.initialize(newsize);}
-    void setCompressionLayerSize(int newsize) {layerc.initialize(newsize);}
+    void setHiddenLayerSize(int newsize) {
+		layer1.initialize(newsize);
+		layer1b.initialize(layer1._size);
+		layer1b2.initialize(layer1._size);
+		layer1.clear();
+	}
+    void setCompressionLayerSize(int newsize) {
+		layerc.initialize(newsize);
+		layercb.initialize(layerc._size);
+		layerc.clear();
+	}
     void setDirectSize(long long newsize) {direct_size=newsize;}
     void setDirectOrder(int newsize) {direct_order=newsize;}
     void setBPTT(int newval) {bp._bptt = newval;}

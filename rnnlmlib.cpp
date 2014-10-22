@@ -95,63 +95,35 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 void CRnnLM::initialize()
 {
 	layer0.initialize(vocab._size + layer1._size);
-	layer2.initialize(vocab._size + wordClass._size);
+	layer0b.initialize(layer0._size);
+	layer0.clear();
+
 	matrix01.initialize(layer0._size, layer1._size);
+	matrix01b.initialize(layer0._size, layer1._size);
+	matrix01.randomize();
+
+	layer2.initialize(vocab._size + wordClass._size);
+	layer2b.initialize(layer2._size);
+	layer2.clear();
 	
 	if (layerc._size == 0) {
 		matrix12.initialize(layer1._size, layer2._size);
+		matrix12b.initialize(layer1._size, layer2._size);
+		matrix12.randomize();
 	} else {
 		matrix12.initialize(layer1._size, layerc._size);
-		matrixc2.initialize(layerc._size, layer2._size);
-	}
+		matrix12b.initialize(layer1._size, layerc._size);
+		matrix12.randomize();
 
-	if (matrix12._synapses == NULL) {
-		printf("Memory allocation failed\n");
-		exit(1);
-	}
-    
-	if (layerc._size > 0) if (matrixc2._synapses == NULL) {
-		printf("Memory allocation failed\n");
-		exit(1);
+		matrixc2.initialize(layerc._size, layer2._size);
+		matrixc2b.initialize(layerc._size, layer2._size);
+		matrixc2.randomize();
 	}
     
 	syn_d = (direct_t *)calloc((long long)direct_size, sizeof(direct_t));
-
 	if (syn_d==NULL) {
 		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct_size * (long long)sizeof(direct_t));
 		exit(1);
-	}
-
-	layer0b.initialize(layer0._size);
-	layer1b.initialize(layer1._size);
-	layercb.initialize(layerc._size);
-	layer1b2.initialize(layer1._size);
-	layer2b.initialize(layer2._size);
-
-	matrix01b.initialize(layer0._size, layer1._size);
-	
-	if (layerc._size == 0) {
-		matrix12b.initialize(layer1._size, layer2._size);
-	} else {
-		matrix12b.initialize(layer1._size, layerc._size);
-		matrixc2b.initialize(layerc._size, layer2._size);
-	}
-
-	if (matrix12b._synapses ==NULL) {
-		printf("Memory allocation failed\n");
-		exit(1);
-	}
-
-	layer0.clear();
-	layer1.clear();
-	layerc.clear();
-	layer2.clear();
-
-	matrix01.randomize();
-
-	matrix12.randomize();
-	if (layerc._size>0) {
-		matrixc2.randomize();
 	}
     
 	long long aa;

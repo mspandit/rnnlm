@@ -34,4 +34,10 @@ public:
 	void normalizeActivation(int);
 };
 
+class LayerBackup : Layer {
+	Layer _backup;
+	
+	void initialize(int);
+};
+
 #endif

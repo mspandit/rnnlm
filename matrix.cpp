@@ -8,6 +8,10 @@
 
 void Matrix::initialize(int rows, int columns) {
 	_synapses = (Synapse *)calloc(rows * columns, sizeof(Synapse));
+	if (_synapses == NULL) {
+		printf("%s line %d: Memory allocation failed\n", __FILE__, __LINE__);
+		exit(1);
+	}
 	_rows = rows;
 	_columns = columns;
 }
