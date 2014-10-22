@@ -74,20 +74,11 @@ protected:
 
     int independent;
     
-    Layer layer0;		//neurons in input layer
+    LayerBackup layer0;		//neurons in input layer
     LayerBackup layer1;		//neurons in hidden layer
-    Layer layerc;		//neurons in hidden layer
-    Layer layer2;		//neurons in output layer
-
-    //backup used in training:
-	Layer layer0b;
-	Layer layer1b;
-	Layer layercb;
-	Layer layer2b;
+    LayerBackup layerc;		//neurons in hidden layer
+    LayerBackup layer2;		//neurons in output layer
     
-    //backup used in n-bset rescoring:
-   	Layer layer1b2;
-
 	Matrix matrix01;
     Matrix matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
     Matrix matrixc2;		//weights between hidden and compression layer
@@ -192,13 +183,10 @@ public:
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
     void setHiddenLayerSize(int newsize) {
 		layer1.initialize(newsize);
-		layer1b.initialize(layer1._size);
-		layer1b2.initialize(layer1._size);
 		layer1.clear();
 	}
     void setCompressionLayerSize(int newsize) {
 		layerc.initialize(newsize);
-		layercb.initialize(layerc._size);
 		layerc.clear();
 	}
     void setDirectSize(long long newsize) {direct_size=newsize;}

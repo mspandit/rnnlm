@@ -135,3 +135,11 @@ void LayerBackup::initialize(int size) {
 	for (int index = 0;  index < sizeof(_backups) / sizeof(Layer);  index++)
 		_backups[index].initialize(size);
 }
+
+void LayerBackup::backup(int which_backup) {
+	_backups[which_backup].copy(*this);
+}
+
+void LayerBackup::restore(int which_backup) {
+	this->copy(_backups[which_backup]);
+}

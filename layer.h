@@ -39,6 +39,8 @@ class LayerBackup : public Layer {
 
 public:
 	void initialize(int);
+	void backup(int);
+	void restore(int);
 };
 
 #endif

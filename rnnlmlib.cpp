@@ -66,10 +66,10 @@ int CRnnLM::readWordIndex(FILE *fin)
 
 void CRnnLM::saveWeights()      //saves current weights and unit activations
 {
-	layer0b.copy(layer0);
-	layer1b.copy(layer1);
-	layercb.copy(layerc);
-	layer2b.copy(layer2);
+	layer0.backup(0);
+	layer1.backup(0);
+	layerc.backup(0);
+	layer2.backup(0);
     
 	matrix01b.copy(matrix01);
 	matrix12b.copy(matrix12);
@@ -95,7 +95,6 @@ void CRnnLM::restoreWeights()      //restores current weights and unit activatio
 void CRnnLM::initialize()
 {
 	layer0.initialize(vocab._size + layer1._size);
-	layer0b.initialize(layer0._size);
 	layer0.clear();
 
 	matrix01.initialize(layer0._size, layer1._size);
@@ -103,7 +102,6 @@ void CRnnLM::initialize()
 	matrix01.randomize();
 
 	layer2.initialize(vocab._size + wordClass._size);
-	layer2b.initialize(layer2._size);
 	layer2.clear();
 	
 	if (layerc._size == 0) {
@@ -1335,8 +1333,8 @@ void CRnnLM::testNbest()
 	restoreNet();
 	computeProbDist(0, 0);
 	copyHiddenLayerToInput();
-	layer1b.copy(layer1);
-	layer1b2.copy(layer1);
+	layer1.backup(0);
+	layer1.backup(1);
     
 	if (use_lmprob) {
 		lmprob=fopen(lmprob_file, "rb");
@@ -1365,15 +1363,15 @@ void CRnnLM::testNbest()
 			fscanf(fi, "%s", ut2);
 	    
 			if (nbest_cn==1) 
-				layer1b2.copy(layer1); //save context after processing first sentence in nbest
+				layer1.backup(1); //save context after processing first sentence in nbest
 	    
 			if (strcmp(ut1, ut2)) {
 				strcpy(ut1, ut2);
 				nbest_cn=0;
-				layer1.copy(layer1b2);
-				layer1b.copy(layer1);
+				layer1.restore(1);
+				layer1.backup(0);
 			} else 
-				layer1.copy(layer1b);
+				layer1.restore(0);
 	    
 			nbest_cn++;
 	    
