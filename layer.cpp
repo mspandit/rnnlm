@@ -128,3 +128,10 @@ void Layer::clearActivationRange(int first_neuron, int num_neurons)
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
 		_neurons[neuron_index].ac = 0;
 }
+
+void LayerBackup::initialize(int size) {
+	Layer::initialize(size);
+	
+	for (int index = 0;  index < sizeof(_backups) / sizeof(Layer);  index++)
+		_backups[index].initialize(size);
+}

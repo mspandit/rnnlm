@@ -75,7 +75,7 @@ protected:
     int independent;
     
     Layer layer0;		//neurons in input layer
-    Layer layer1;		//neurons in hidden layer
+    LayerBackup layer1;		//neurons in hidden layer
     Layer layerc;		//neurons in hidden layer
     Layer layer2;		//neurons in output layer
 
@@ -137,8 +137,6 @@ public:
 
 		vocab.initialize(100, 0, 100000000);
 		layer1.initialize(30);	
-		layer1b.initialize(layer1._size);
-		layer1b2.initialize(layer1._size);
 		layer1.clear();
 		direct_size=0;
 		direct_order=0;

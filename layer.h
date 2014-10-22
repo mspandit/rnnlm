@@ -14,7 +14,7 @@ public:
 	~Layer() {
 		if (_neurons != NULL) free(_neurons);
 	}
-	void initialize(int);
+	virtual void initialize(int);
 	void copy(const Layer &);
 	void clearActivation();
 	void clearActivationRange(int, int);
@@ -34,9 +34,10 @@ public:
 	void normalizeActivation(int);
 };
 
-class LayerBackup : Layer {
-	Layer _backup;
-	
+class LayerBackup : public Layer {
+	Layer _backups[2];
+
+public:
 	void initialize(int);
 };
 
