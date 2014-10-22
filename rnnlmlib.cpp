@@ -887,10 +887,7 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 	
-		for (b = 0; b < layerc._size; b++) {
-			for (a = 0; a < layer1._size; a++) 
-				matrix12._synapses[a + b * layer1._size].weight += alpha * layerc._neurons[b].er * layer1._neurons[a].ac;	//weight 1->c update
-		}
+		matrix12.adjustWeights(alpha, layer1._neurons, layerc._neurons);
 	}
 	else
 	{

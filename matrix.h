@@ -23,6 +23,7 @@ public:
 	void scan(FILE *);
 	static real random(real, real);
 	void randomize();
+	void adjustWeights(real, Neuron [], Neuron []);
 };
 
 #endif
