@@ -22,6 +22,7 @@ enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 class CRnnLM {
 private:
 	void direct_applyToClasses(Neuron []);
+	void direct_applyToWords(Neuron [], int);
 		
 protected:
     char train_file[MAX_STRING];
