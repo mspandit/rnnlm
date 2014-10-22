@@ -592,6 +592,7 @@ void CRnnLM::clearClassActivation(int word)
 }
 
 void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
+	// Apply direct connections from earlier classes to current classes (???)
 	if (direct_size>0) {
 		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to syn_d that contains hash parameters
 		for (int a = 0; a < direct_order; a++) hash[a] = 0;
@@ -617,7 +618,7 @@ void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
 }
 
 void CRnnLM::direct_applyToWords(Neuron neurons[], int class_index) {
-	//apply direct connections to words
+	//apply direct connections from earlier words to current word (???)
 	if (direct_size > 0) {
 		unsigned long long hash[MAX_NGRAM_ORDER];
 		for (int a = 0; a < direct_order; a++) hash[a] = 0;
@@ -645,8 +646,6 @@ void CRnnLM::direct_applyToWords(Neuron neurons[], int class_index) {
 
 void CRnnLM::computeProbDist(int last_word, int word)
 {
-	int a, b, c;
-
 	//propagate 0->1
 	layer1.clearActivation();
 	
@@ -726,12 +725,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	}
 }
 
-void CRnnLM::computeErrorVectors(int word)
+void CRnnLM::setOutputErrors(int word)
 {
 	for (int c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
 		layer2._neurons[wordClass._words[vocab._words[word].class_index][c]].er = (0 - layer2._neurons[wordClass._words[vocab._words[word].class_index][c]].ac);
 	}
-	layer2._neurons[word].er=(1-layer2._neurons[word].ac);	//word part
+	layer2._neurons[word].er = (1-layer2._neurons[word].ac);	//word part
 
 	for (int a = vocab._size; a < layer2._size; a++) {
 		layer2._neurons[a].er = (0 - layer2._neurons[a].ac);
@@ -749,6 +748,59 @@ void CRnnLM::adjustWeights(int counter, int b, int t, real beta2)
 			matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
 }
 
+void CRnnLM::direct_learnForWords(int word, real beta3) {
+	if (direct_size > 0) {	//learn direct connections between words
+		if (word != -1) {
+			unsigned long long hash[MAX_NGRAM_ORDER];
+	    
+			for (int a=0; a<direct_order; a++) hash[a]=0;
+	
+			for (int a=0; a<direct_order; a++) {
+				if (a>0) if (history[a-1]==-1) break;
+				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab._words[word].class_index+1);
+				
+				for (int b = 1; b <= a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
+				hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
+			}
+	
+			for (int c = 0; c<wordClass._word_count[vocab._words[word].class_index]; c++) {
+				int a = wordClass._words[vocab._words[word].class_index][c];
+	    
+				for (int b=0; b<direct_order; b++) if (hash[b]) {
+					syn_d[hash[b]]+=alpha*layer2._neurons[a].er - syn_d[hash[b]]*beta3;
+					hash[b]++;
+					hash[b]=hash[b]%direct_size;
+				} else break;
+			}
+		}
+	}
+}
+
+void CRnnLM::direct_learnForClasses(int word, real beta3) {
+	if (direct_size > 0) {
+		//learn direct connections to classes
+		//learn direct connections between words and classes
+		unsigned long long hash[MAX_NGRAM_ORDER];
+	
+		for (int a=0; a<direct_order; a++) hash[a]=0;
+	
+		for (int a = 0; a<direct_order; a++) {
+			if (a>0) if (history[a-1]==-1) break;
+			hash[a]=PRIMES[0]*PRIMES[1];
+	    	    
+			for (int b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
+			hash[a]=hash[a]%(direct_size/2);
+		}
+	
+		for (int a=vocab._size; a<layer2._size; a++) {
+			for (int b=0; b<direct_order; b++) if (hash[b]) {
+				syn_d[hash[b]] += alpha * layer2._neurons[a].er - syn_d[hash[b]] * beta3;
+				hash[b]++;
+			} else break;
+		}
+	}
+}
+
 void CRnnLM::learn(int last_word, int word)
 {
 	int a, b, c, t, step;
@@ -759,59 +811,14 @@ void CRnnLM::learn(int last_word, int word)
 
 	if (word == -1) return;
 
-	computeErrorVectors(word);
+	setOutputErrors(word);
 
 	//flush error
 	layer1.clearError();
 	layerc.clearError();
     
-	if (direct_size > 0) {	//learn direct connections between words
-		if (word != -1) {
-			unsigned long long hash[MAX_NGRAM_ORDER];
-	    
-			for (a=0; a<direct_order; a++) hash[a]=0;
-	
-			for (a=0; a<direct_order; a++) {
-				b=0;
-				if (a>0) if (history[a-1]==-1) break;
-				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab._words[word].class_index+1);
-				
-				for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-				hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
-			}
-	
-			for (c=0; c<wordClass._word_count[vocab._words[word].class_index]; c++) {
-				a = wordClass._words[vocab._words[word].class_index][c];
-	    
-				for (b=0; b<direct_order; b++) if (hash[b]) {
-					syn_d[hash[b]]+=alpha*layer2._neurons[a].er - syn_d[hash[b]]*beta3;
-					hash[b]++;
-					hash[b]=hash[b]%direct_size;
-				} else break;
-			}
-		}
-		//learn direct connections to classes
-		//learn direct connections between words and classes
-		unsigned long long hash[MAX_NGRAM_ORDER];
-	
-		for (a=0; a<direct_order; a++) hash[a]=0;
-	
-		for (a=0; a<direct_order; a++) {
-			b=0;
-			if (a>0) if (history[a-1]==-1) break;
-			hash[a]=PRIMES[0]*PRIMES[1];
-	    	    
-			for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-			hash[a]=hash[a]%(direct_size/2);
-		}
-	
-		for (a=vocab._size; a<layer2._size; a++) {
-			for (b=0; b<direct_order; b++) if (hash[b]) {
-				syn_d[hash[b]]+=alpha*layer2._neurons[a].er - syn_d[hash[b]]*beta3;
-				hash[b]++;
-			} else break;
-		}
-	}
+	direct_learnForWords(word, beta3);
+	direct_learnForClasses(word, beta3);
     
 	if (layerc._size>0) {
 		// propagate errors from words portion of layer 2 into compression layer

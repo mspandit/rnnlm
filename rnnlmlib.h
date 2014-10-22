@@ -23,7 +23,9 @@ class CRnnLM {
 private:
 	void direct_applyToClasses(Neuron []);
 	void direct_applyToWords(Neuron [], int);
-		
+	void direct_learnForClasses(int, real);
+	void direct_learnForWords(int, real);
+
 protected:
     char train_file[MAX_STRING];
     char valid_file[MAX_STRING];
@@ -212,7 +214,7 @@ public:
     void netReset();    //will erase just hidden layer state + bptt history + maxent history (called at end of sentences in the independent mode)
 
 	void adjustWeights(int, int, int, real);
-	void computeErrorVectors(int);
+	void setOutputErrors(int);
 
 	void clearClassActivation(int);
 	void normalizeOutputClassActivation();
