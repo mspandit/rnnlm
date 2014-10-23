@@ -788,16 +788,16 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 	
-		t = vocab._size * layer1._size;
+		t = vocab._size;
 		for (int column = vocab._size; column < layer2._size; column++) {
 			// adjustWeights()
 			if ((counter % 10) == 0)	//regularization is done every 10 steps
 				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+					matrix12._synapses[row + t * layer1._size].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t * layer1._size].weight * beta2;
 			else
 				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
-			t += layer1._size;
+					matrix12._synapses[row + t * layer1._size].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
+			t += 1;
 		}
 	}
 
