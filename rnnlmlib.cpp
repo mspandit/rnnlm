@@ -131,12 +131,12 @@ void CRnnLM::initialize()
 		matrixc2.randomize();
 	}
     
-	syn_d = (direct_t *)calloc((long long)direct_size, sizeof(direct_t));
-	if (syn_d==NULL) {
+	direct.syn_d = (direct_t *)calloc((long long)direct_size, sizeof(direct_t));
+	if (direct.syn_d==NULL) {
 		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct_size * (long long)sizeof(direct_t));
 		exit(1);
 	}
-	for (long long aa = 0; aa < direct_size; aa++) syn_d[aa]=0;
+	for (long long aa = 0; aa < direct_size; aa++) direct.syn_d[aa]=0;
 
 	bp.initialize(layer0._size, layer1._size);
 
@@ -250,13 +250,13 @@ void CRnnLM::saveNet()       //will save the whole network structure
 		fprintf(fo, "\nDirect connections:\n");
 		long long aa;
 		for (aa=0; aa<direct_size; aa++) {
-			fprintf(fo, "%.2f\n", syn_d[aa]);
+			fprintf(fo, "%.2f\n", direct.syn_d[aa]);
 		}
 	}
 	if (filetype==BINARY) {
 		long long aa;
 		for (aa=0; aa<direct_size; aa++) {
-			fl=syn_d[aa];
+			fl=direct.syn_d[aa];
 			fwrite(&fl, sizeof(fl), 1, fo);
 		}
 	}
@@ -441,7 +441,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
 		long long aa;
 		for (aa=0; aa<direct_size; aa++) {
 			fscanf(fi, "%lf", &d);
-			syn_d[aa]=d;
+			direct.syn_d[aa]=d;
 		}
 	}
 	//
@@ -449,7 +449,7 @@ void CRnnLM::restoreNet()    //will read whole network structure
 		long long aa;
 		for (aa=0; aa<direct_size; aa++) {
 			fread(&fl, sizeof(fl), 1, fi);
-			syn_d[aa]=fl;
+			direct.syn_d[aa]=fl;
 		}
 	}
 	//
@@ -594,7 +594,7 @@ void CRnnLM::clearClassActivation(int word)
 void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
 	// Apply direct connections from earlier classes to current classes (???)
 	if (direct_size>0) {
-		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to syn_d that contains hash parameters
+		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to direct.syn_d that contains hash parameters
 		for (int a = 0; a < direct_order; a++) hash[a] = 0;
 		for (int a = 0; a < direct_order; a++) {
 			if ((a > 0) && (history[a - 1] == -1)) 
@@ -603,13 +603,13 @@ void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
 	    	    
 			for (int b = 1; b <= a; b++) 
 				hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);	//update hash value based on words from the history
-			hash[a] = hash[a] % (direct_size / 2);		//make sure that starting hash index is in the first half of syn_d (second part is reserved for history->words features)
+			hash[a] = hash[a] % (direct_size / 2);		//make sure that starting hash index is in the first half of direct.syn_d (second part is reserved for history->words features)
 		}
 	
 		for (int a = vocab._size; a < layer2._size; a++) {
 			for (int b = 0; b < direct_order; b++) 
 				if (hash[b]) {
-					neurons[a].ac += syn_d[hash[b]];		//apply current parameter and move to the next one
+					neurons[a].ac += direct.syn_d[hash[b]];		//apply current parameter and move to the next one
 					hash[b]++;
 				} else 
 					break;
@@ -635,7 +635,7 @@ void CRnnLM::direct_applyToWords(Neuron neurons[], int class_index) {
 			int a = wordClass._words[class_index][c];
 			for (int b = 0; b < direct_order; b++) 
 				if (hash[b]) {
-					neurons[a].ac += syn_d[hash[b]];
+					neurons[a].ac += direct.syn_d[hash[b]];
 					hash[b]++;
 					hash[b] = hash[b] % direct_size;
 				} else 
@@ -767,7 +767,7 @@ void CRnnLM::direct_learnForWords(int word, real beta3) {
 				int a = wordClass._words[vocab._words[word].class_index][c];
 	    
 				for (int b=0; b<direct_order; b++) if (hash[b]) {
-					syn_d[hash[b]]+=alpha*layer2._neurons[a].er - syn_d[hash[b]]*beta3;
+					direct.syn_d[hash[b]]+=alpha*layer2._neurons[a].er - direct.syn_d[hash[b]]*beta3;
 					hash[b]++;
 					hash[b]=hash[b]%direct_size;
 				} else break;
@@ -794,7 +794,7 @@ void CRnnLM::direct_learnForClasses(int word, real beta3) {
 	
 		for (int a=vocab._size; a<layer2._size; a++) {
 			for (int b=0; b<direct_order; b++) if (hash[b]) {
-				syn_d[hash[b]] += alpha * layer2._neurons[a].er - syn_d[hash[b]] * beta3;
+				direct.syn_d[hash[b]] += alpha * layer2._neurons[a].er - direct.syn_d[hash[b]] * beta3;
 				hash[b]++;
 			} else break;
 		}
@@ -1532,7 +1532,7 @@ void CRnnLM::testGen()
 				a=wordClass._words[cla][c];
 
 				for (b=0; b<direct_order; b++) if (hash[b]) {
-					layer2._neurons[a].ac+=syn_d[hash[b]];
+					layer2._neurons[a].ac+=direct.syn_d[hash[b]];
 					hash[b]++;
 					hash[b]=hash[b]%direct_size;
 				} else break;

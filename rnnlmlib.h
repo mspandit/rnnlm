@@ -19,6 +19,19 @@ const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 
+typedef WEIGHTTYPE direct_t;	// ME weights
+class Direct {
+public:
+    direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
+	
+	Direct() {
+		syn_d = NULL;
+	}
+	~Direct() {
+	    if (syn_d != NULL) free(syn_d);
+	}
+};
+
 class CRnnLM {
 private:
 	void direct_applyToClasses(Neuron []);
@@ -68,6 +81,8 @@ protected:
 	WordClass wordClass;
     int old_classes;
 
+	Direct direct;
+    direct_t *syn_db;
     long long direct_size;
     int direct_order;
     int history[MAX_NGRAM_ORDER];
@@ -89,8 +104,6 @@ protected:
     MatrixBackup matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
     MatrixBackup matrixc2;		//weights between hidden and compression layer
 
-    direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
-    direct_t *syn_db;
     
     
 public:
@@ -138,7 +151,6 @@ public:
 
 		independent=0;
 
-		syn_d=NULL;
 		syn_db=NULL;	
 		//
 
@@ -158,8 +170,6 @@ public:
     ~CRnnLM()		//destructor, deallocates memory
     {
 		if (layer0._neurons != NULL) {	    
-		    if (syn_d!=NULL) free(syn_d);
-
 		    if (syn_db!=NULL) free(syn_db);
 		}
     }
