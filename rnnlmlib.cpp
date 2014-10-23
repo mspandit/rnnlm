@@ -1406,9 +1406,9 @@ void CRnnLM::testGen()
 			for (a=0; a<direct._order; a++) {
 				b=0;
 				if (a>0) if (direct._history[a-1]==-1) break;
-				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(cla+1);
+				hash[a]=Direct::PRIMES[0]*Direct::PRIMES[1]*(unsigned long long)(cla+1);
 
-				for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%Direct::PRIMES_SIZE]*(unsigned long long)(direct._history[b-1]+1);
+				for (b=1; b<=a; b++) hash[a]+=Direct::PRIMES[(a*Direct::PRIMES[b]+b)%Direct::Direct::PRIMES_SIZE]*(unsigned long long)(direct._history[b-1]+1);
 				hash[a]=(hash[a]%(direct._size/2))+(direct._size)/2;
 			}
 
