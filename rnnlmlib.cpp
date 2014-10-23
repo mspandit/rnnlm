@@ -132,12 +132,7 @@ void CRnnLM::initialize()
 		matrixc2.randomize();
 	}
     
-	direct._synapses = (direct_t *)calloc((long long)direct._size, sizeof(direct_t));
-	if (direct._synapses==NULL) {
-		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct._size * (long long)sizeof(direct_t));
-		exit(1);
-	}
-	for (long long aa = 0; aa < direct._size; aa++) direct._synapses[aa]=0;
+	direct.initialize();
 
 	bp.initialize(layer0._size, layer1._size);
 
@@ -157,7 +152,6 @@ void CRnnLM::saveNet()       //will save the whole network structure
 {
 	FILE *fo;
 	char str[1000];
-	float fl;
     
 	sprintf(str, "%s.temp", rnnlm_file);
 
@@ -249,17 +243,10 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	////////
 	if (filetype==TEXT) {
 		fprintf(fo, "\nDirect connections:\n");
-		long long aa;
-		for (aa=0; aa<direct._size; aa++) {
-			fprintf(fo, "%.2f\n", direct._synapses[aa]);
-		}
+		direct.print(fo);
 	}
 	if (filetype==BINARY) {
-		long long aa;
-		for (aa=0; aa<direct._size; aa++) {
-			fl=direct._synapses[aa];
-			fwrite(&fl, sizeof(fl), 1, fo);
-		}
+		direct.write(fo);
 	}
 
 	fclose(fo);
@@ -284,7 +271,6 @@ void CRnnLM::restoreNet()    //will read whole network structure
 {
 	FILE *fi;
 	int ver;
-	float fl;
 	char str[MAX_STRING];
 	double d;
 
@@ -439,19 +425,11 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	//
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);		//direct conenctions
-		long long aa;
-		for (aa=0; aa<direct._size; aa++) {
-			fscanf(fi, "%lf", &d);
-			direct._synapses[aa]=d;
-		}
+		direct.scan(fi);
 	}
 	//
 	if (filetype==BINARY) {
-		long long aa;
-		for (aa=0; aa<direct._size; aa++) {
-			fread(&fl, sizeof(fl), 1, fi);
-			direct._synapses[aa]=fl;
-		}
+		direct.read(fi);
 	}
 	//
     
@@ -1355,7 +1333,7 @@ void CRnnLM::testNbest()
 
 void CRnnLM::testGen()
 {
-	int i, word, cla, last_word, wordcn, c, b, a=0;
+	int i, word, cla, last_word, wordcn, c, a=0;
 	real f, g, sum;
     
 	restoreNet();
@@ -1398,30 +1376,8 @@ void CRnnLM::testGen()
 		);
         
 		//apply direct connections to words
-		if (word!=-1) if (direct._size>0) {
-			unsigned long long hash[MAX_NGRAM_ORDER];
-
-			for (a=0; a<direct._order; a++) hash[a]=0;
-
-			for (a=0; a<direct._order; a++) {
-				b=0;
-				if (a>0) if (direct._history[a-1]==-1) break;
-				hash[a]=Direct::PRIMES[0]*Direct::PRIMES[1]*(unsigned long long)(cla+1);
-
-				for (b=1; b<=a; b++) hash[a]+=Direct::PRIMES[(a*Direct::PRIMES[b]+b)%Direct::Direct::PRIMES_SIZE]*(unsigned long long)(direct._history[b-1]+1);
-				hash[a]=(hash[a]%(direct._size/2))+(direct._size)/2;
-			}
-
-			for (c=0; c<wordClass._word_count[cla]; c++) {
-				a=wordClass._words[cla][c];
-
-				for (b=0; b<direct._order; b++) if (hash[b]) {
-					layer2._neurons[a].ac+=direct._synapses[hash[b]];
-					hash[b]++;
-					hash[b]=hash[b]%direct._size;
-				} else break;
-			}
-		}
+		if (word!=-1) 
+			direct.applyToWords(layer2._neurons, cla, wordClass);
         
 		//activation 2   --softmax on words
 		// 130425 - this is now a 'safe' softmax

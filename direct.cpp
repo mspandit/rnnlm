@@ -132,3 +132,41 @@ void Direct::learnForClasses(int word, real alpha, real beta3, const Vocabulary 
 		}
 	}
 }
+
+void Direct::initialize() {
+	_synapses = (direct_t *)calloc((long long)_size, sizeof(direct_t));
+	if (_synapses==NULL) {
+		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)_size * (long long)sizeof(direct_t));
+		exit(1);
+	}
+	for (long long aa = 0; aa < _size; aa++) _synapses[aa]=0;
+}
+
+void Direct::print(FILE *fo) {
+	for (long long aa=0; aa<_size; aa++) {
+		fprintf(fo, "%.2f\n", _synapses[aa]);
+	}
+}
+
+void Direct::write(FILE *fo) {
+	for (long long aa=0; aa<_size; aa++) {
+		float fl = _synapses[aa];
+		fwrite(&fl, sizeof(fl), 1, fo);
+	}
+}
+
+void Direct::scan(FILE *fi) {
+	double d;
+	for (long long aa=0; aa<_size; aa++) {
+		fscanf(fi, "%lf", &d);
+		_synapses[aa]=d;
+	}
+}
+
+void Direct::read(FILE *fi) {
+	float fl;
+	for (long long aa=0; aa<_size; aa++) {
+		fread(&fl, sizeof(fl), 1, fi);
+		_synapses[aa]=fl;
+	}
+}

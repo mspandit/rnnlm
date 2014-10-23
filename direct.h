@@ -23,12 +23,17 @@ public:
 	~Direct() {
 	    if (_synapses != NULL) free(_synapses);
 	}
+	void initialize();
 	void applyToClasses(Neuron [], const Vocabulary &, int);
 	void applyToWords(Neuron [], int, const WordClass &);
 	void learnForClasses(int, real, real, const Vocabulary &, const Layer &);
 	void learnForWords(int, real, real, const Vocabulary &, const WordClass &, const Layer &);
 	void clearHistory();
 	void push(int);
+	void print(FILE *);
+	void write(FILE *);
+	void scan(FILE *);
+	void read(FILE *);
 };
 
 class DirectBackup : public Direct {
