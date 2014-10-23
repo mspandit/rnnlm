@@ -661,7 +661,7 @@ void CRnnLM::setOutputErrors(int word)
 
 void CRnnLM::learn(int last_word, int word)
 {
-	int a, b, c, t, step;
+	int a, b, c, step;
 	real beta2, beta3;
 
 	beta2 = beta * alpha;
@@ -691,18 +691,13 @@ void CRnnLM::learn(int last_word, int word)
 			layerc._size,
 			1
 		);
-	
-		t = wordClass.firstWordInClass(vocab._words[word].class_index) * layerc._size;
+
 		for (c = 0; c < wordClass.firstWordInClass(vocab._words[word].class_index); c++) {
 			int column = wordClass._words[vocab._words[word].class_index][c];
-			// adjustWeights()
 			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
 			else
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
-			t += layerc._size;
+				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
 		}
 
 		// propagate errors from classes portion of layer 2 into compression layer
@@ -718,16 +713,11 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 	
-		t = vocab._size * layerc._size;
 		for (int column = vocab._size; column < layer2._size; column++) {
-			// adjustWeights()
 			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
 			else
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
-			t += layerc._size;
+				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
 		}
 	
 		layerc.deriveError();
@@ -761,18 +751,13 @@ void CRnnLM::learn(int last_word, int word)
 			layer1._size,
 			1
 		);
-    	
-		t = wordClass._words[vocab._words[word].class_index][0] * layer1._size;
+
 		for (c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
 			int column = wordClass._words[vocab._words[word].class_index][c];
-			// adjustWeights()
 			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
 			else
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
-			t += layer1._size;
+				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
 		}
 
 		// propagate errors from classes portion of output layer to layer 1
@@ -788,16 +773,11 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 	
-		t = vocab._size;
 		for (int column = vocab._size; column < layer2._size; column++) {
-			// adjustWeights()
 			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t * layer1._size].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t * layer1._size].weight * beta2;
+				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
 			else
-				for (int row = 0; row < layer1._size; row++) 
-					matrix12._synapses[row + t * layer1._size].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
-			t += 1;
+				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
 		}
 	}
 

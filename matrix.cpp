@@ -87,6 +87,11 @@ void Matrix::adjustRowWeightsBeta2(int row, real alpha, real beta2, Neuron row_n
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
 }
 
+void Matrix::adjustColumnWeightsBeta2(int column, real alpha, real beta2, Neuron row_neurons[], Neuron column_neurons[]) {
+	for (int row = 0; row < _rows; row++) 
+		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
+}
+
 void MatrixBackup::initialize(int rows, int columns) {
 	Matrix::initialize(rows, columns);
 	_backup.initialize(rows, columns);
