@@ -24,8 +24,9 @@ public:
 	static real random(real, real);
 	void randomize();
 	void adjustRowWeights(int, real, Neuron [], Neuron []);
+	void adjustColumnWeights(int, real, Neuron [], Neuron []);
 	void adjustWeights(real, Neuron [], Neuron []);
-	void adjustWeightsBeta2(int, real, real, Neuron [], Neuron []);
+	void adjustRowWeightsBeta2(int, real, real, Neuron [], Neuron []);
 };
 
 class MatrixBackup : public Matrix {

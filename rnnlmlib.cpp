@@ -659,16 +659,6 @@ void CRnnLM::setOutputErrors(int word)
 	layer2._neurons[vocab._size + vocab._words[word].class_index].er = (1 - layer2._neurons[vocab._size + vocab._words[word].class_index].ac);	//class part
 }
 
-void CRnnLM::adjustWeights(int counter, int b, int t, real beta2)
-{
-	if ((counter % 10) == 0)	//regularization is done every 10 steps
-		for (int a = 0; a < layer1._size; a++) 
-			matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac - matrix12._synapses[a + t].weight * beta2;
-	else
-		for (int a = 0; a < layer1._size; a++) 
-			matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
-}
-
 void CRnnLM::learn(int last_word, int word)
 {
 	int a, b, c, t, step;
@@ -704,8 +694,14 @@ void CRnnLM::learn(int last_word, int word)
 	
 		t = wordClass.firstWordInClass(vocab._words[word].class_index) * layerc._size;
 		for (c = 0; c < wordClass.firstWordInClass(vocab._words[word].class_index); c++) {
-			b = wordClass._words[vocab._words[word].class_index][c];
-			adjustWeights(counter, b, t, beta2);
+			int column = wordClass._words[vocab._words[word].class_index][c];
+			// adjustWeights()
+			if ((counter % 10) == 0)	//regularization is done every 10 steps
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+			else
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
 			t += layerc._size;
 		}
 
@@ -723,8 +719,14 @@ void CRnnLM::learn(int last_word, int word)
 		);
 	
 		t = vocab._size * layerc._size;
-		for (b = vocab._size; b < layer2._size; b++) {
-			adjustWeights(counter, b, t, beta2);
+		for (int column = vocab._size; column < layer2._size; column++) {
+			// adjustWeights()
+			if ((counter % 10) == 0)	//regularization is done every 10 steps
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+			else
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
 			t += layerc._size;
 		}
 	
@@ -762,8 +764,14 @@ void CRnnLM::learn(int last_word, int word)
     	
 		t = wordClass._words[vocab._words[word].class_index][0] * layer1._size;
 		for (c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
-			b = wordClass._words[vocab._words[word].class_index][c];
-			adjustWeights(counter, b, t, beta2);
+			int column = wordClass._words[vocab._words[word].class_index][c];
+			// adjustWeights()
+			if ((counter % 10) == 0)	//regularization is done every 10 steps
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+			else
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
 			t += layer1._size;
 		}
 
@@ -781,8 +789,14 @@ void CRnnLM::learn(int last_word, int word)
 		);
 	
 		t = vocab._size * layer1._size;
-		for (b = vocab._size; b < layer2._size; b++) {
-			adjustWeights(counter, b, t, beta2);
+		for (int column = vocab._size; column < layer2._size; column++) {
+			// adjustWeights()
+			if ((counter % 10) == 0)	//regularization is done every 10 steps
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac - matrix12._synapses[row + t].weight * beta2;
+			else
+				for (int row = 0; row < layer1._size; row++) 
+					matrix12._synapses[row + t].weight += alpha * layer2._neurons[column].er * layer1._neurons[row].ac;
 			t += layer1._size;
 		}
 	}
@@ -794,14 +808,14 @@ void CRnnLM::learn(int last_word, int word)
 		a=last_word;
 		if (a!=-1) {
 			if ((counter % 10) == 0)
-				matrix01.adjustWeightsBeta2(a, alpha, beta2, layer0._neurons, layer1._neurons);
+				matrix01.adjustRowWeightsBeta2(a, alpha, beta2, layer0._neurons, layer1._neurons);
 			else
 				matrix01.adjustRowWeights(a, alpha, layer0._neurons, layer1._neurons);
 		}
 
 		if ((counter % 10) == 0) {
 			for (a = layer0._size - layer1._size; a < layer0._size; a++)
-				matrix01.adjustWeightsBeta2(a, alpha, beta2, layer0._neurons, layer1._neurons);
+				matrix01.adjustRowWeightsBeta2(a, alpha, beta2, layer0._neurons, layer1._neurons);
 		} else {
 			for (a = layer0._size - layer1._size; a < layer0._size; a++) 
 				matrix01.adjustRowWeights(a, alpha, layer0._neurons, layer1._neurons);
