@@ -661,7 +661,7 @@ void CRnnLM::setOutputErrors(int word)
 
 void CRnnLM::learn(int last_word, int word)
 {
-	int a, b, c, step;
+	int a, b, step;
 	real beta2, beta3;
 
 	beta2 = beta * alpha;
@@ -692,13 +692,7 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 
-		for (c = 0; c < wordClass.firstWordInClass(vocab._words[word].class_index); c++) {
-			int column = wordClass._words[vocab._words[word].class_index][c];
-			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
-			else
-				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
-		}
+		matrix12.learnForWords(word, counter, alpha, beta2, vocab, wordClass, layer1._neurons, layer2._neurons);
 
 		// propagate errors from classes portion of layer 2 into compression layer
 		matrixXvector(
@@ -712,13 +706,8 @@ void CRnnLM::learn(int last_word, int word)
 			layerc._size,
 			1
 		);
-	
-		for (int column = vocab._size; column < layer2._size; column++) {
-			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
-			else
-				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
-		}
+
+		matrix12.learnForClasses(counter, alpha, beta2, vocab, layer1._neurons, layer2._neurons);
 	
 		layerc.deriveError();
 	
@@ -752,13 +741,7 @@ void CRnnLM::learn(int last_word, int word)
 			1
 		);
 
-		for (c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
-			int column = wordClass._words[vocab._words[word].class_index][c];
-			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
-			else
-				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
-		}
+		matrix12.learnForWords(word, counter, alpha, beta2, vocab, wordClass, layer1._neurons, layer2._neurons);
 
 		// propagate errors from classes portion of output layer to layer 1
 		matrixXvector(
@@ -772,13 +755,8 @@ void CRnnLM::learn(int last_word, int word)
 			layer1._size,
 			1
 		);
-	
-		for (int column = vocab._size; column < layer2._size; column++) {
-			if ((counter % 10) == 0)	//regularization is done every 10 steps
-				matrix12.adjustColumnWeightsBeta2(column, alpha, beta2, layer1._neurons, layer2._neurons);
-			else
-				matrix12.adjustColumnWeights(column, alpha, layer1._neurons, layer2._neurons);
-		}
+
+		matrix12.learnForClasses(counter, alpha, beta2, vocab, layer1._neurons, layer2._neurons);
 	}
 
 	if (bp._bptt <= 1) {		//bptt==1 -> normal BP

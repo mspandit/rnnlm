@@ -16,8 +16,8 @@ public:
 	    free(_max_cn);
 	}
 	void initialize(const Vocabulary &);
-	int firstWordInClass(int class_index) { return _words[class_index][0]; }
-	int lastWordInClass(int class_index) { return _words[class_index][0] + _word_count[class_index]; }
+	int firstWordInClass(int class_index) const { return _words[class_index][0]; }
+	int lastWordInClass(int class_index) const { return _words[class_index][0] + _word_count[class_index]; }
 };
 
 #endif

@@ -4,6 +4,8 @@
 #include "types.h"
 #include "neuron.h"
 #include "synapse.h"
+#include "vocabulary.h"
+#include "word_class.h"
 #include "matrix.h"
 
 void Matrix::initialize(int rows, int columns) {
@@ -72,7 +74,7 @@ void Matrix::adjustRowWeights(int row, real alpha, Neuron row_neurons[], Neuron 
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac;
 }
 
-void Matrix::adjustColumnWeights(int column, real alpha, Neuron row_neurons[], Neuron column_neurons[]) {
+void Matrix::adjustColumnWeights(int column, real alpha, const Neuron row_neurons[], const Neuron column_neurons[]) {
 	for (int row = 0; row < _rows; row++) 
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac;
 }
@@ -87,10 +89,29 @@ void Matrix::adjustRowWeightsBeta2(int row, real alpha, real beta2, Neuron row_n
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
 }
 
-void Matrix::adjustColumnWeightsBeta2(int column, real alpha, real beta2, Neuron row_neurons[], Neuron column_neurons[]) {
+void Matrix::adjustColumnWeightsBeta2(int column, real alpha, real beta2, const Neuron row_neurons[], const Neuron column_neurons[]) {
 	for (int row = 0; row < _rows; row++) 
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
 }
+void Matrix::learnForWords(int word, int counter, real alpha, real beta2, const Vocabulary &vocab, const WordClass &wordClass, const Neuron layer1_neurons[], const Neuron layer2_neurons[]) {
+	for (int c = 0; c < wordClass._word_count[vocab._words[word].class_index]; c++) {
+		int column = wordClass._words[vocab._words[word].class_index][c];
+		if ((counter % 10) == 0)	//regularization is done every 10 steps
+			adjustColumnWeightsBeta2(column, alpha, beta2, layer1_neurons, layer2_neurons);
+		else
+			adjustColumnWeights(column, alpha, layer1_neurons, layer2_neurons);
+	}
+}
+
+void Matrix::learnForClasses(int counter, real alpha, real beta2, const Vocabulary &vocab, const Neuron layer1_neurons[], const Neuron layer2_neurons[]) {
+	for (int column = vocab._size; column < _columns; column++) {
+		if ((counter % 10) == 0)	//regularization is done every 10 steps
+			adjustColumnWeightsBeta2(column, alpha, beta2, layer1_neurons, layer2_neurons);
+		else
+			adjustColumnWeights(column, alpha, layer1_neurons, layer2_neurons);
+	}
+}
+
 
 void MatrixBackup::initialize(int rows, int columns) {
 	Matrix::initialize(rows, columns);

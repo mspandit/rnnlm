@@ -24,10 +24,12 @@ public:
 	static real random(real, real);
 	void randomize();
 	void adjustRowWeights(int, real, Neuron [], Neuron []);
-	void adjustColumnWeights(int, real, Neuron [], Neuron []);
+	void adjustColumnWeights(int, real, const Neuron [], const Neuron []);
 	void adjustWeights(real, Neuron [], Neuron []);
 	void adjustRowWeightsBeta2(int, real, real, Neuron [], Neuron []);
-	void adjustColumnWeightsBeta2(int, real, real, Neuron [], Neuron []);
+	void adjustColumnWeightsBeta2(int, real, real, const Neuron [], const Neuron []);
+	void learnForWords(int, int, real, real, const Vocabulary &, const WordClass &, const Neuron [], const Neuron []);
+	void learnForClasses(int, real, real, const Vocabulary &, const Neuron [], const Neuron []);
 };
 
 class MatrixBackup : public Matrix {
