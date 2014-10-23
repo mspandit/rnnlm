@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "fastexp.h"
 #include "types.h"
 #include "neuron.h"

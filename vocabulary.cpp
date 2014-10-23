@@ -1,8 +1,6 @@
-#include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include "types.h"
 #include "vocabulary.h"
 
 void Vocabulary::readWord(char *word, FILE *fin)

@@ -2,6 +2,9 @@
 
 #define _BACKPROPAGATION_H_
 
+#include "neuron.h"
+#include "synapse.h"
+
 class Backpropagation {
 private:
 	static const int __history_buffer = 10;

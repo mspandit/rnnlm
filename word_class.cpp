@@ -1,7 +1,5 @@
-#include <stdio.h>
 #include <stdlib.h>
 
-#include "types.h"
 #include "vocabulary.h"
 #include "word_class.h"
 

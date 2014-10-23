@@ -2,8 +2,6 @@
 #include <stdlib.h>
 
 #include "types.h"
-#include "neuron.h"
-#include "synapse.h"
 #include "backpropagation.h"
 
 Backpropagation::Backpropagation() {

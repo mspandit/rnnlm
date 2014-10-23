@@ -2,6 +2,8 @@
 
 #define _WORD_CLASS_H_
 
+#include "vocabulary.h"
+
 class WordClass {
 public:
     int _size;

@@ -2,6 +2,10 @@
 
 #define _VOCABULARY_H_
 
+#include <stdio.h>
+
+#include "types.h"
+
 class Word {
 public:
     int cn;

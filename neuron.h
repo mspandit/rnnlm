@@ -2,6 +2,10 @@
 
 #define _NEURON_H_
 
+#include <stdio.h>
+
+#include "types.h"
+
 class Neuron {
 public:
     real ac;		//actual value stored in neuron

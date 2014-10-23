@@ -2,6 +2,12 @@
 
 #define _MATRIX_H_
 
+#include <stdio.h>
+
+#include "synapse.h"
+#include "neuron.h"
+#include "vocabulary.h"
+
 class Matrix {
 public:
 	Synapse *_synapses;

@@ -7,17 +7,12 @@
 //
 ///////////////////////////////////////////////////////////////////////
 
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
 #include <cfloat>
 #include "fastexp.h"
-#include "types.h"
-#include "neuron.h"
-#include "synapse.h"
-#include "vocabulary.h"
 #include "word_class.h"
 #include "layer.h"
 #include "matrix.h"

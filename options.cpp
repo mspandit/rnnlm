@@ -1,11 +1,6 @@
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
 
-#include "types.h"
-#include "neuron.h"
-#include "synapse.h"
-#include "vocabulary.h"
 #include "word_class.h"
 #include "layer.h"
 #include "matrix.h"

@@ -1,9 +1,5 @@
-#include <stdio.h>
 #include <stdlib.h>
 
-#include "types.h"
-#include "neuron.h"
-#include "synapse.h"
 #include "vocabulary.h"
 #include "word_class.h"
 #include "layer.h"

@@ -2,6 +2,9 @@
 
 #define _LAYER_H_
 
+#include "neuron.h"
+#include "synapse.h"
+
 class Layer {
 public:
 	Neuron *_neurons;
