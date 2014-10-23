@@ -10,6 +10,7 @@
 #include "layer.h"
 #include "matrix.h"
 #include "backpropagation.h"
+#include "direct.h"
 #include "rnnlmlib.h"
 #include "options.h"
 

@@ -13,48 +13,10 @@
 const unsigned int PRIMES[]={108641969, 116049371, 125925907, 133333309, 145678979, 175308587, 197530793, 234567803, 251851741, 264197411, 330864029, 399999781,
 407407183, 459258997, 479012069, 545678687, 560493491, 607407037, 629629243, 656789717, 716048933, 718518067, 725925469, 733332871, 753085943, 755555077,
 782715551, 790122953, 812345159, 814814293, 893826581, 923456189, 940740127, 953085797, 985184539, 990122807};
-const unsigned int PRIMES_SIZE=sizeof(PRIMES)/sizeof(PRIMES[0]);
 
 const int MAX_NGRAM_ORDER=20;
 
 enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
-
-typedef WEIGHTTYPE direct_t;	// ME weights
-class Direct {
-public:
-    direct_t *_synapses;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
-    long long _size;
-    int _order;
-    int _history[MAX_NGRAM_ORDER];
-	
-	Direct() {
-		_synapses = NULL;
-		_size = 0;
-		_order = 0;
-	}
-	~Direct() {
-	    if (_synapses != NULL) free(_synapses);
-	}
-	void applyToClasses(Neuron [], const Vocabulary &, int);
-	void applyToWords(Neuron [], int, const WordClass &);
-	void learnForClasses(int, real, real, const Vocabulary &, const Layer &);
-	void learnForWords(int, real, real, const Vocabulary &, const WordClass &, const Layer &);
-	void clearHistory();
-	void push(int);
-};
-
-class DirectBackup : public Direct {
-public:
-	direct_t *_backup;
-	
-	DirectBackup() {
-		Direct();
-		_backup = NULL;
-	}
-	~DirectBackup() {
-		if (_backup != NULL) free(_backup);
-	}
-};
 
 class CRnnLM {
 protected:
