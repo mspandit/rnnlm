@@ -22,23 +22,41 @@ enum FileTypeEnum {TEXT, BINARY, COMPRESSED};		//COMPRESSED not yet implemented
 typedef WEIGHTTYPE direct_t;	// ME weights
 class Direct {
 public:
-    direct_t *syn_d;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
+    direct_t *_synapses;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
+    long long _size;
+    int _order;
+    int _history[MAX_NGRAM_ORDER];
 	
 	Direct() {
-		syn_d = NULL;
+		_synapses = NULL;
+		_size = 0;
+		_order = 0;
 	}
 	~Direct() {
-	    if (syn_d != NULL) free(syn_d);
+	    if (_synapses != NULL) free(_synapses);
+	}
+	void applyToClasses(Neuron [], const Vocabulary &, int);
+	void applyToWords(Neuron [], int, const WordClass &);
+	void learnForClasses(int, real, real, const Vocabulary &, const Layer &);
+	void learnForWords(int, real, real, const Vocabulary &, const WordClass &, const Layer &);
+	void clearHistory();
+	void push(int);
+};
+
+class DirectBackup : public Direct {
+public:
+	direct_t *_backup;
+	
+	DirectBackup() {
+		Direct();
+		_backup = NULL;
+	}
+	~DirectBackup() {
+		if (_backup != NULL) free(_backup);
 	}
 };
 
 class CRnnLM {
-private:
-	void direct_applyToClasses(Neuron []);
-	void direct_applyToWords(Neuron [], int);
-	void direct_learnForClasses(int, real);
-	void direct_learnForWords(int, real);
-
 protected:
     char train_file[MAX_STRING];
     char valid_file[MAX_STRING];
@@ -81,13 +99,7 @@ protected:
 	WordClass wordClass;
     int old_classes;
 
-	Direct direct;
-    direct_t *syn_db;
-    long long direct_size;
-    int direct_order;
-    int history[MAX_NGRAM_ORDER];
-	void direct_clearHistory();
-	void direct_push(int);
+	DirectBackup direct;
 	
 	Backpropagation bp;
     
@@ -144,15 +156,10 @@ public:
 		vocab.initialize(100, 0, 100000000);
 		layer1.initialize(30);	
 		layer1.clear();
-		direct_size=0;
-		direct_order=0;
 
 		gen=0;
 
 		independent=0;
-
-		syn_db=NULL;	
-		//
 
 		rand_seed=1;
 
@@ -165,13 +172,6 @@ public:
 		debug_mode=1;
 		srand(rand_seed);
 
-    }
-    
-    ~CRnnLM()		//destructor, deallocates memory
-    {
-		if (layer0._neurons != NULL) {	    
-		    if (syn_db!=NULL) free(syn_db);
-		}
     }
     
     void setTrainFile(char *str);
@@ -195,8 +195,8 @@ public:
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
     void setHiddenLayerSize(int);
     void setCompressionLayerSize(int);
-    void setDirectSize(long long newsize) {direct_size=newsize;}
-    void setDirectOrder(int newsize) {direct_order=newsize;}
+    void setDirectSize(long long newsize) {direct._size = newsize;}
+    void setDirectOrder(int newsize) {direct._order = newsize;}
     void setBPTT(int newval) {bp._bptt = newval;}
     void setBPTTBlock(int newval) {bp._block=newval;}
     void setRandSeed(int newSeed) {rand_seed=newSeed; srand(rand_seed);}

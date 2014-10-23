@@ -131,12 +131,12 @@ void CRnnLM::initialize()
 		matrixc2.randomize();
 	}
     
-	direct.syn_d = (direct_t *)calloc((long long)direct_size, sizeof(direct_t));
-	if (direct.syn_d==NULL) {
-		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct_size * (long long)sizeof(direct_t));
+	direct._synapses = (direct_t *)calloc((long long)direct._size, sizeof(direct_t));
+	if (direct._synapses==NULL) {
+		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)direct._size * (long long)sizeof(direct_t));
 		exit(1);
 	}
-	for (long long aa = 0; aa < direct_size; aa++) direct.syn_d[aa]=0;
+	for (long long aa = 0; aa < direct._size; aa++) direct._synapses[aa]=0;
 
 	bp.initialize(layer0._size, layer1._size);
 
@@ -184,8 +184,8 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	fprintf(fo, "compression layer size: %d\n", layerc._size);
 	fprintf(fo, "output layer size: %d\n", layer2._size);
 
-	fprintf(fo, "direct connections: %lld\n", direct_size);
-	fprintf(fo, "direct order: %d\n", direct_order);
+	fprintf(fo, "direct connections: %lld\n", direct._size);
+	fprintf(fo, "direct order: %d\n", direct._order);
     
 	fprintf(fo, "bptt: %d\n", bp._bptt);
 	fprintf(fo, "bptt block: %d\n", bp._block);
@@ -249,14 +249,14 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	if (filetype==TEXT) {
 		fprintf(fo, "\nDirect connections:\n");
 		long long aa;
-		for (aa=0; aa<direct_size; aa++) {
-			fprintf(fo, "%.2f\n", direct.syn_d[aa]);
+		for (aa=0; aa<direct._size; aa++) {
+			fprintf(fo, "%.2f\n", direct._synapses[aa]);
 		}
 	}
 	if (filetype==BINARY) {
 		long long aa;
-		for (aa=0; aa<direct_size; aa++) {
-			fl=direct.syn_d[aa];
+		for (aa=0; aa<direct._size; aa++) {
+			fl=direct._synapses[aa];
 			fwrite(&fl, sizeof(fl), 1, fo);
 		}
 	}
@@ -344,12 +344,12 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	//
 	if (ver>5) {
 		goToDelimiter(':', fi);
-		fscanf(fi, "%lld", &direct_size);
+		fscanf(fi, "%lld", &direct._size);
 	}
 	//
 	if (ver>6) {
 		goToDelimiter(':', fi);
-		fscanf(fi, "%d", &direct_order);
+		fscanf(fi, "%d", &direct._order);
 	}
 	//
 	goToDelimiter(':', fi);
@@ -439,17 +439,17 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	if (filetype==TEXT) {
 		goToDelimiter(':', fi);		//direct conenctions
 		long long aa;
-		for (aa=0; aa<direct_size; aa++) {
+		for (aa=0; aa<direct._size; aa++) {
 			fscanf(fi, "%lf", &d);
-			direct.syn_d[aa]=d;
+			direct._synapses[aa]=d;
 		}
 	}
 	//
 	if (filetype==BINARY) {
 		long long aa;
-		for (aa=0; aa<direct_size; aa++) {
+		for (aa=0; aa<direct._size; aa++) {
 			fread(&fl, sizeof(fl), 1, fi);
-			direct.syn_d[aa]=fl;
+			direct._synapses[aa]=fl;
 		}
 	}
 	//
@@ -476,9 +476,9 @@ void CRnnLM::netFlush()   //cleans all activations and error vectors
 	layer2.clear();
 }
 
-void CRnnLM::direct_clearHistory() {
+void Direct::clearHistory() {
 	for (int a = 0; a < MAX_NGRAM_ORDER; a++)
-		history[a] = 0;
+		_history[a] = 0;
 }
 
 void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
@@ -489,7 +489,7 @@ void CRnnLM::netReset()   //cleans hidden layer activation + bptt history
 
 	bp.reset();
 
-	direct_clearHistory();
+	direct.clearHistory();
 }
 
 // Propagate activation from the source layer to the destination layer
@@ -591,25 +591,25 @@ void CRnnLM::clearClassActivation(int word)
 		layer2._neurons[wordClass._words[vocab._words[word].class_index][c]].ac = 0;
 }
 
-void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
+void Direct::applyToClasses(Neuron neurons[], const Vocabulary &vocab, int layer2_size) {
 	// Apply direct connections from earlier classes to current classes (???)
-	if (direct_size>0) {
-		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to direct.syn_d that contains hash parameters
-		for (int a = 0; a < direct_order; a++) hash[a] = 0;
-		for (int a = 0; a < direct_order; a++) {
-			if ((a > 0) && (history[a - 1] == -1)) 
+	if (_size>0) {
+		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to _synapses that contains hash parameters
+		for (int a = 0; a < _order; a++) hash[a] = 0;
+		for (int a = 0; a < _order; a++) {
+			if ((a > 0) && (_history[a - 1] == -1)) 
 				break;	//if OOV was in history, do not use this N-gram feature and higher orders
 			hash[a] = PRIMES[0] * PRIMES[1];
 	    	    
 			for (int b = 1; b <= a; b++) 
-				hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);	//update hash value based on words from the history
-			hash[a] = hash[a] % (direct_size / 2);		//make sure that starting hash index is in the first half of direct.syn_d (second part is reserved for history->words features)
+				hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(_history[b - 1] + 1);	//update hash value based on words from the history
+			hash[a] = hash[a] % (_size / 2);		//make sure that starting hash index is in the first half of _synapses (second part is reserved for history->words features)
 		}
 	
-		for (int a = vocab._size; a < layer2._size; a++) {
-			for (int b = 0; b < direct_order; b++) 
+		for (int a = vocab._size; a < layer2_size; a++) {
+			for (int b = 0; b < _order; b++) 
 				if (hash[b]) {
-					neurons[a].ac += direct.syn_d[hash[b]];		//apply current parameter and move to the next one
+					neurons[a].ac += _synapses[hash[b]];		//apply current parameter and move to the next one
 					hash[b]++;
 				} else 
 					break;
@@ -617,27 +617,27 @@ void CRnnLM::direct_applyToClasses(Neuron neurons[]) {
 	}
 }
 
-void CRnnLM::direct_applyToWords(Neuron neurons[], int class_index) {
+void Direct::applyToWords(Neuron neurons[], int class_index, const WordClass &wordClass) {
 	//apply direct connections from earlier words to current word (???)
-	if (direct_size > 0) {
+	if (_size > 0) {
 		unsigned long long hash[MAX_NGRAM_ORDER];
-		for (int a = 0; a < direct_order; a++) hash[a] = 0;
-		for (int a = 0; a < direct_order; a++) {
-			if ((a > 0) && (history[a - 1] == -1)) 
+		for (int a = 0; a < _order; a++) hash[a] = 0;
+		for (int a = 0; a < _order; a++) {
+			if ((a > 0) && (_history[a - 1] == -1)) 
 				break;
 			hash[a] = PRIMES[0] * PRIMES[1] * (unsigned long long)(class_index + 1);
 			for (int b = 1; b <= a; b++) 
-				hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(history[b - 1] + 1);
-			hash[a] = (hash[a] % (direct_size / 2)) + (direct_size / 2);
+				hash[a] += PRIMES[(a * PRIMES[b] + b) % PRIMES_SIZE] * (unsigned long long)(_history[b - 1] + 1);
+			hash[a] = (hash[a] % (_size / 2)) + (_size / 2);
 		}
 
 		for (int c = 0; c < wordClass._word_count[class_index]; c++) {
 			int a = wordClass._words[class_index][c];
-			for (int b = 0; b < direct_order; b++) 
+			for (int b = 0; b < _order; b++) 
 				if (hash[b]) {
-					neurons[a].ac += direct.syn_d[hash[b]];
+					neurons[a].ac += _synapses[hash[b]];
 					hash[b]++;
-					hash[b] = hash[b] % direct_size;
+					hash[b] = hash[b] % _size;
 				} else 
 					break;
 		}
@@ -678,7 +678,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		matrixXvector(layer2, layer1, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 0);
 	}
 
-	direct_applyToClasses(layer2._neurons);
+	direct.applyToClasses(layer2._neurons, vocab, layer2._size);
 
 	layer2.normalizeActivation(vocab._size);
  
@@ -719,7 +719,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 			);
 		}
 
-		direct_applyToWords(layer2._neurons, vocab._words[word].class_index);
+		direct.applyToWords(layer2._neurons, vocab._words[word].class_index, wordClass);
 
 		layer2.setSigmoidActivation(wordClass, vocab._words[word]);
 	}
@@ -748,53 +748,53 @@ void CRnnLM::adjustWeights(int counter, int b, int t, real beta2)
 			matrix12._synapses[a + t].weight += alpha * layer2._neurons[b].er * layer1._neurons[a].ac;
 }
 
-void CRnnLM::direct_learnForWords(int word, real beta3) {
-	if (direct_size > 0) {	//learn direct connections between words
+void Direct::learnForWords(int word, real alpha, real beta3, const Vocabulary &vocab, const WordClass &wordClass, const Layer &layer2) {
+	if (_size > 0) {	//learn direct connections between words
 		if (word != -1) {
 			unsigned long long hash[MAX_NGRAM_ORDER];
 	    
-			for (int a=0; a<direct_order; a++) hash[a]=0;
+			for (int a=0; a<_order; a++) hash[a]=0;
 	
-			for (int a=0; a<direct_order; a++) {
-				if (a>0) if (history[a-1]==-1) break;
+			for (int a=0; a<_order; a++) {
+				if (a>0) if (_history[a-1]==-1) break;
 				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab._words[word].class_index+1);
 				
-				for (int b = 1; b <= a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-				hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
+				for (int b = 1; b <= a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(_history[b-1]+1);
+				hash[a]=(hash[a]%(_size/2))+(_size)/2;
 			}
 	
 			for (int c = 0; c<wordClass._word_count[vocab._words[word].class_index]; c++) {
 				int a = wordClass._words[vocab._words[word].class_index][c];
 	    
-				for (int b=0; b<direct_order; b++) if (hash[b]) {
-					direct.syn_d[hash[b]]+=alpha*layer2._neurons[a].er - direct.syn_d[hash[b]]*beta3;
+				for (int b=0; b<_order; b++) if (hash[b]) {
+					_synapses[hash[b]]+=alpha*layer2._neurons[a].er - _synapses[hash[b]]*beta3;
 					hash[b]++;
-					hash[b]=hash[b]%direct_size;
+					hash[b]=hash[b]%_size;
 				} else break;
 			}
 		}
 	}
 }
 
-void CRnnLM::direct_learnForClasses(int word, real beta3) {
-	if (direct_size > 0) {
+void Direct::learnForClasses(int word, real alpha, real beta3, const Vocabulary &vocab, const Layer &layer2) {
+	if (_size > 0) {
 		//learn direct connections to classes
 		//learn direct connections between words and classes
 		unsigned long long hash[MAX_NGRAM_ORDER];
 	
-		for (int a=0; a<direct_order; a++) hash[a]=0;
+		for (int a=0; a<_order; a++) hash[a]=0;
 	
-		for (int a = 0; a<direct_order; a++) {
-			if (a>0) if (history[a-1]==-1) break;
+		for (int a = 0; a<_order; a++) {
+			if (a>0) if (_history[a-1]==-1) break;
 			hash[a]=PRIMES[0]*PRIMES[1];
 	    	    
-			for (int b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-			hash[a]=hash[a]%(direct_size/2);
+			for (int b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(_history[b-1]+1);
+			hash[a]=hash[a]%(_size/2);
 		}
 	
 		for (int a=vocab._size; a<layer2._size; a++) {
-			for (int b=0; b<direct_order; b++) if (hash[b]) {
-				direct.syn_d[hash[b]] += alpha * layer2._neurons[a].er - direct.syn_d[hash[b]] * beta3;
+			for (int b=0; b<_order; b++) if (hash[b]) {
+				_synapses[hash[b]] += alpha * layer2._neurons[a].er - _synapses[hash[b]] * beta3;
 				hash[b]++;
 			} else break;
 		}
@@ -817,8 +817,8 @@ void CRnnLM::learn(int last_word, int word)
 	layer1.clearError();
 	layerc.clearError();
     
-	direct_learnForWords(word, beta3);
-	direct_learnForClasses(word, beta3);
+	direct.learnForWords(word, alpha, beta3, vocab, wordClass, layer2);
+	direct.learnForClasses(word, alpha, beta3, vocab, layer2);
     
 	if (layerc._size>0) {
 		// propagate errors from words portion of layer 2 into compression layer
@@ -1031,10 +1031,10 @@ void CRnnLM::copyHiddenLayerToInput()
 	}
 }
 
-void CRnnLM::direct_push(int last_word) {
+void Direct::push(int last_word) {
 	for (int a = MAX_NGRAM_ORDER - 1; a > 0; a--) 
-		history[a] = history[a-1];
-	history[0] = last_word;
+		_history[a] = _history[a-1];
+	_history[0] = last_word;
 }
 
 void CRnnLM::trainNet()
@@ -1071,7 +1071,7 @@ void CRnnLM::trainNet()
 		fflush(stdout);
         
 		bp.clearHistory();
-		direct_clearHistory();
+		direct.clearHistory();
 
 		//TRAINING PHASE
 		netFlush();
@@ -1125,7 +1125,7 @@ void CRnnLM::trainNet()
 
 			last_word = word;
             
-			direct_push(last_word);
+			direct.push(last_word);
 
 			if (independent && (word==0)) netReset();
 		}
@@ -1177,7 +1177,7 @@ void CRnnLM::trainNet()
 			if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
 
 			last_word=word;
-            direct_push(last_word);
+            direct.push(last_word);
 
 			if (independent && (word==0)) netReset();
 		}
@@ -1256,7 +1256,7 @@ void CRnnLM::testNet()
 	copyHiddenLayerToInput();
     
 	bp.clearHistory();
-	direct_clearHistory();
+	direct.clearHistory();
 
 	if (independent) netReset();
     
@@ -1307,7 +1307,7 @@ void CRnnLM::testNet()
 		if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
 
 		last_word=word;
-        direct_push(last_word);
+        direct.push(last_word);
 
 		if (independent && (word==0)) netReset();
 	}
@@ -1354,7 +1354,7 @@ void CRnnLM::testNbest()
 
 	//TEST PHASE
 	//netFlush();
-    direct_clearHistory();
+    direct.clearHistory();
 
 	if (!strcmp(test_file, "-")) fi=stdin; else fi=fopen(test_file, "rb");
     
@@ -1445,7 +1445,7 @@ void CRnnLM::testNbest()
 		}
 
 		last_word=word;
-        direct_push(last_word);
+        direct.push(last_word);
 
 		if (independent && (word==0)) netReset();
 	}
@@ -1514,27 +1514,27 @@ void CRnnLM::testGen()
 		);
         
 		//apply direct connections to words
-		if (word!=-1) if (direct_size>0) {
+		if (word!=-1) if (direct._size>0) {
 			unsigned long long hash[MAX_NGRAM_ORDER];
 
-			for (a=0; a<direct_order; a++) hash[a]=0;
+			for (a=0; a<direct._order; a++) hash[a]=0;
 
-			for (a=0; a<direct_order; a++) {
+			for (a=0; a<direct._order; a++) {
 				b=0;
-				if (a>0) if (history[a-1]==-1) break;
+				if (a>0) if (direct._history[a-1]==-1) break;
 				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(cla+1);
 
-				for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(history[b-1]+1);
-				hash[a]=(hash[a]%(direct_size/2))+(direct_size)/2;
+				for (b=1; b<=a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(direct._history[b-1]+1);
+				hash[a]=(hash[a]%(direct._size/2))+(direct._size)/2;
 			}
 
 			for (c=0; c<wordClass._word_count[cla]; c++) {
 				a=wordClass._words[cla][c];
 
-				for (b=0; b<direct_order; b++) if (hash[b]) {
-					layer2._neurons[a].ac+=direct.syn_d[hash[b]];
+				for (b=0; b<direct._order; b++) if (hash[b]) {
+					layer2._neurons[a].ac+=direct._synapses[hash[b]];
 					hash[b]++;
-					hash[b]=hash[b]%direct_size;
+					hash[b]=hash[b]%direct._size;
 				} else break;
 			}
 		}
@@ -1586,7 +1586,7 @@ void CRnnLM::testGen()
 		if (last_word!=-1) layer0._neurons[last_word].ac=0;  //delete previous activation
 
 		last_word=word;
-        direct_push(last_word);
+        direct.push(last_word);
 
 		if (independent && (word==0)) netReset();
         
