@@ -70,3 +70,8 @@ void Backpropagation::clearHistory() {
 		for (int a = 0; a < _bptt + _block; a++) // ignores __history_buffer (???) 
 			_word_history[a] = 0;
 }
+
+void Backpropagation::copy(const Layer &layer) {
+	for (int b = 0; b < layer._size; b++) 
+		_neurons[b].copy(layer._neurons[b]);
+}

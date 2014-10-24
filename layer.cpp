@@ -4,6 +4,7 @@
 #include "fastexp.h"
 #include "vocabulary.h"
 #include "word_class.h"
+#include "backpropagation.h"
 #include "layer.h"
 
 void Layer::initialize(int size) {
@@ -15,6 +16,11 @@ void Layer::copy(const Layer &src) {
 	for (int a = 0; a < _size; a++) {
 		_neurons[a].copy(src._neurons[a]);
 	}
+}
+
+void Layer::copyActivation(const Backpropagation &src) {
+	for (int b = 0; b < _size; b++) 
+		_neurons[b].ac = src._neurons[b].ac;		//restore hidden layer after bptt
 }
 
 void Layer::print(FILE *fo) {
@@ -123,6 +129,11 @@ void Layer::clearActivationRange(int first_neuron, int num_neurons)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
 		_neurons[neuron_index].ac = 0;
+}
+
+void Layer::clearErrorRange(int first_neuron, int num_neurons) {
+	for (int a = first_neuron; a < num_neurons; a++)
+		_neurons[a].er = 0;
 }
 
 void LayerBackup::initialize(int size) {

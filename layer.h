@@ -4,6 +4,9 @@
 
 #include "neuron.h"
 #include "synapse.h"
+#include "word_class.h"
+
+class Backpropagation;
 
 class Layer {
 public:
@@ -19,9 +22,11 @@ public:
 	}
 	virtual void initialize(int);
 	void copy(const Layer &);
+	void copyActivation(const Backpropagation &);
 	void clearActivation();
 	void clearActivationRange(int, int);
 	void clearError();
+	void clearErrorRange(int, int);
 	void clear();
 	void print(FILE *);
 	void write(FILE *);

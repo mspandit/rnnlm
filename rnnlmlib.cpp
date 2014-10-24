@@ -776,8 +776,7 @@ void CRnnLM::learn(int last_word, int word)
 	}
 	else		//BPTT
 	{
-		for (b = 0; b < layer1._size; b++) 
-			bp._neurons[b].copy(layer1._neurons[b]);
+		bp.copy(layer1);
 	
 		if (((counter % bp._block) == 0) || (independent && (word == 0))) {
 			for (step = 0; step < bp._bptt + bp._block - 2; step++) {
@@ -788,8 +787,7 @@ void CRnnLM::learn(int last_word, int word)
 				if (a != -1)
 					bp.adjustRowWeights(a, alpha, 1.0, layer1._neurons);
 
-				for (a = layer0._size - layer1._size; a < layer0._size; a++)
-					layer0._neurons[a].er = 0;
+				layer0.clearErrorRange(layer0._size - layer1._size, layer0._size);
 
 				// propagate errors from entire layer 1 to prior-state portion of input layer
 				matrixXvector(
@@ -822,10 +820,9 @@ void CRnnLM::learn(int last_word, int word)
 			for (a=0; a<(bp._bptt+bp._block)*layer1._size; a++) {
 				bp._neurons[a].er=0;
 			}
-		
-			for (b=0; b<layer1._size; b++) layer1._neurons[b].ac=bp._neurons[b].ac;		//restore hidden layer after bptt
 
-			//
+			layer1.copyActivation(bp);
+
 			for (b=0; b<layer1._size; b++) {		//copy temporary syn0
 				if ((counter%10)==0) {
 					for (a=layer0._size-layer1._size; a<layer0._size; a++) {
