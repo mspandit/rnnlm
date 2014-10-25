@@ -11,12 +11,12 @@ private:
     int *_word_history;
     int _time_steps; // amount of steps to propagate error back in time; default is 0 (equal to simple RNN)
     int _block; // # of time steps after which the error is backpropagated through time in block mode. Set to 1 to update at each time step.
-
-public:
-    Neuron *_neurons;
-    Synapse *_synapses;
 	int _rows;
 	int _columns;
+    Neuron *_neurons;
+
+public:
+    Synapse *_synapses;
 	
 	Backpropagation();
 	~Backpropagation();
@@ -27,10 +27,13 @@ public:
 	void copy(const Layer &);
 	int wordFromPast(int step) { return _word_history[step]; }
 	void clearHistory();
+	void clearColumnErrors();
 	void setSteps(int steps) { _time_steps = steps; };
 	int getSteps() const { return _time_steps; };
 	void setBlock(int block) { _block = block; };
 	int getBlock() const { return _block; };
+	real getActivation(int which) const { return _neurons[which].ac; };
+	real getError(int which) const { return _neurons[which].er; };
 };
 
 #endif

@@ -20,7 +20,7 @@ void Layer::copy(const Layer &src) {
 
 void Layer::copyActivation(const Backpropagation &src) {
 	for (int b = 0; b < _size; b++) 
-		_neurons[b].ac = src._neurons[b].ac;		//restore hidden layer after bptt
+		_neurons[b].ac = src.getActivation(b);		//restore hidden layer after bptt
 }
 
 void Layer::print(FILE *fo) {

@@ -812,19 +812,17 @@ void CRnnLM::learn(int last_word, int word)
 				}
 	    
 				for (a=0; a<layer1._size; a++) {		//propagate error from time T-n to T-n-1
-					layer1._neurons[a].er = layer0._neurons[a + layer0._size - layer1._size].er + bp._neurons[(step + 1) * layer1._size + a].er;
+					layer1._neurons[a].er = layer0._neurons[a + layer0._size - layer1._size].er + bp.getError((step + 1) * layer1._size + a);
 				}
 	    
 				if (step < bp.getSteps() + bp.getBlock() - 3)
 				for (a = 0; a < layer1._size; a++) {
-					layer1._neurons[a].ac = bp._neurons[(step + 1) * layer1._size + a].ac;
-					layer0._neurons[a + layer0._size - layer1._size].ac = bp._neurons[(step + 2) * layer1._size + a].ac;
+					layer1._neurons[a].ac = bp.getActivation((step + 1) * layer1._size + a);
+					layer0._neurons[a + layer0._size - layer1._size].ac = bp.getActivation((step + 2) * layer1._size + a);
 				}
 			}
-	    
-			for (a = 0; a < (bp.getSteps() + bp.getBlock()) * layer1._size; a++) {
-				bp._neurons[a].er=0;
-			}
+
+			bp.clearColumnErrors();
 
 			layer1.copyActivation(bp);
 
