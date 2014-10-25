@@ -5,16 +5,18 @@
 typedef WEIGHTTYPE direct_t;	// ME weights
 
 class Direct {
-public:
+private:
 	static const int MAX_NGRAM_ORDER = 20;
 	static const unsigned int PRIMES[];
 	static const unsigned int PRIMES_SIZE;
 
     direct_t *_synapses;		//direct parameters between input and output layer (similar to Maximum Entropy model parameters)
     long long _size;
+
     int _order;
     int _history[MAX_NGRAM_ORDER];
 	
+public:
 	Direct() {
 		_synapses = NULL;
 		_size = 0;
@@ -23,6 +25,10 @@ public:
 	~Direct() {
 	    if (_synapses != NULL) free(_synapses);
 	}
+	long long getSize() const { return _size; };
+	void setSize(long long newsize) { _size = newsize; };
+	int getOrder() const { return _order; };
+	void setOrder(int neworder) { _order = neworder; };
 	void initialize();
 	void applyToClasses(Neuron [], const Vocabulary &, int);
 	void applyToWords(Neuron [], int, const WordClass &);
@@ -37,9 +43,10 @@ public:
 };
 
 class DirectBackup : public Direct {
-public:
+private:
 	direct_t *_backup;
 	
+public:
 	DirectBackup() {
 		Direct();
 		_backup = NULL;

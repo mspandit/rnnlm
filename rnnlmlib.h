@@ -153,8 +153,8 @@ public:
     void setMinImprovement(real newMinImprovement) {min_improvement=newMinImprovement;}
     void setHiddenLayerSize(int);
     void setCompressionLayerSize(int);
-    void setDirectSize(long long newsize) {direct._size = newsize;}
-    void setDirectOrder(int newsize) {direct._order = newsize;}
+    void setDirectSize(long long newsize) { direct.setSize(newsize); }
+    void setDirectOrder(int neworder) { direct.setOrder(neworder); }
     void setBPTT(int newval) {bp.setSteps(newval);}
     void setBPTTBlock(int newval) { bp.setBlock(newval); }
     void setRandSeed(int newSeed) {rand_seed=newSeed; srand(rand_seed);}

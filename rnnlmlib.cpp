@@ -174,8 +174,8 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	fprintf(fo, "compression layer size: %d\n", layerc._size);
 	fprintf(fo, "output layer size: %d\n", layer2._size);
 
-	fprintf(fo, "direct connections: %lld\n", direct._size);
-	fprintf(fo, "direct order: %d\n", direct._order);
+	fprintf(fo, "direct connections: %lld\n", direct.getSize());
+	fprintf(fo, "direct order: %d\n", direct.getOrder());
     
 	fprintf(fo, "bptt: %d\n", bp.getSteps());
 	fprintf(fo, "bptt block: %d\n", bp.getBlock());
@@ -326,12 +326,16 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	//
 	if (ver>5) {
 		goToDelimiter(':', fi);
-		fscanf(fi, "%lld", &direct._size);
+		long long newsize;
+		fscanf(fi, "%lld", &newsize);
+		direct.setSize(newsize);
 	}
 	//
 	if (ver>6) {
 		goToDelimiter(':', fi);
-		fscanf(fi, "%d", &direct._order);
+		int neworder;
+		fscanf(fi, "%d", &neworder);
+		direct.setOrder(neworder);
 	}
 	//
 	goToDelimiter(':', fi);
