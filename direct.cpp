@@ -38,7 +38,7 @@ void Direct::applyToClasses(Neuron neurons[], const Vocabulary &vocab, int layer
 			hash[a] = hash[a] % (_size / 2);		//make sure that starting hash index is in the first half of _synapses (second part is reserved for history->words features)
 		}
 	
-		for (int a = vocab._size; a < layer2_size; a++) {
+		for (int a = vocab.getSize(); a < layer2_size; a++) {
 			for (int b = 0; b < _order; b++) 
 				if (hash[b]) {
 					neurons[a].ac += _synapses[hash[b]];		//apply current parameter and move to the next one
@@ -85,14 +85,14 @@ void Direct::learnForWords(int word, real alpha, real beta3, const Vocabulary &v
 	
 			for (int a=0; a<_order; a++) {
 				if (a>0) if (_history[a-1]==-1) break;
-				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab._words[word].class_index+1);
+				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab.getWord(word).class_index+1);
 				
 				for (int b = 1; b <= a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(_history[b-1]+1);
 				hash[a]=(hash[a]%(_size/2))+(_size)/2;
 			}
 	
-			for (int c = 0; c<wordClass._word_count[vocab._words[word].class_index]; c++) {
-				int a = wordClass._words[vocab._words[word].class_index][c];
+			for (int c = 0; c<wordClass._word_count[vocab.getWord(word).class_index]; c++) {
+				int a = wordClass._words[vocab.getWord(word).class_index][c];
 	    
 				for (int b=0; b<_order; b++) if (hash[b]) {
 					_synapses[hash[b]]+=alpha*layer2._neurons[a].er - _synapses[hash[b]]*beta3;
@@ -120,7 +120,7 @@ void Direct::learnForClasses(int word, real alpha, real beta3, const Vocabulary 
 			hash[a]=hash[a]%(_size/2);
 		}
 	
-		for (int a=vocab._size; a<layer2._size; a++) {
+		for (int a=vocab.getSize(); a<layer2._size; a++) {
 			for (int b=0; b<_order; b++) if (hash[b]) {
 				_synapses[hash[b]] += alpha * layer2._neurons[a].er - _synapses[hash[b]] * beta3;
 				hash[b]++;

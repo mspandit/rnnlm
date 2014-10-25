@@ -14,8 +14,8 @@ void WordClass::initialize(const Vocabulary &vocab) {
 		_words[i] = (int *)calloc(_max_cn[i], sizeof(int));
 	}
     
-	for (int i = 0; i < vocab._size; i++) {
-		int cl = vocab._words[i].class_index;
+	for (int i = 0; i < vocab.getSize(); i++) {
+		int cl = vocab.getWord(i).class_index;
 		_words[cl][_word_count[cl]++] = i;
 		if (_word_count[cl] + 2 >= _max_cn[cl]) {
 			_max_cn[cl] += 10;

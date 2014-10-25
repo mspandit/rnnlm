@@ -21,17 +21,19 @@ class Vocabulary {
     int *_hash;
     int _hash_size;
     int _max_size;
-
-public:
     Word *_words;
     int _size;
-	
+
+public:
 	~Vocabulary();
 	void initialize(int, int, int);
 
     void sort();
     int search(char *word);
     int getHash(char *word);
+	const Word & getWord(int index) const { return _words[index]; };
+	int getSize() const { return _size; };
+	void setSize(int newsize) { _size = newsize; };
     int add(char *word);
 	void grow();
 	void clear();
