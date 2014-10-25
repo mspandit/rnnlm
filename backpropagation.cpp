@@ -5,7 +5,7 @@
 #include "backpropagation.h"
 
 Backpropagation::Backpropagation() {
-	_bptt = 0;
+	_time_steps = 0;
 	_block = 10;
 	_word_history = NULL;
 	_neurons = NULL;
@@ -21,10 +21,10 @@ Backpropagation::~Backpropagation()  {
 void Backpropagation::initialize(int rows, int columns) {
 	_rows = rows;
 	_columns = columns;
-	if (_bptt > 0) {
-		_word_history = (int *)calloc((_bptt + _block + __history_buffer), sizeof(int));
-		_neurons = (Neuron *)calloc((_bptt + _block + 1) * columns, sizeof(Neuron));
-		for (int a = 0; a < (_bptt + _block) * columns; a++) {
+	if (_time_steps > 0) {
+		_word_history = (int *)calloc((_time_steps + _block + __history_buffer), sizeof(int));
+		_neurons = (Neuron *)calloc((_time_steps + _block + 1) * columns, sizeof(Neuron));
+		for (int a = 0; a < (_time_steps + _block) * columns; a++) {
 			_word_history[a] = -1;
 			_neurons[a].clear();
 		}
@@ -37,10 +37,10 @@ void Backpropagation::initialize(int rows, int columns) {
 }
 
 void Backpropagation::reset() {
-	if (_bptt > 0) {
-		for (int a = 1; a < _bptt + _block; a++) 
+	if (_time_steps > 0) {
+		for (int a = 1; a < _time_steps + _block; a++) 
 			_word_history[a] = 0;
-		for (int a = _bptt + _block - 1; a > 1; a--) 
+		for (int a = _time_steps + _block - 1; a > 1; a--) 
 			for (int b = 0; b < _columns; b++) {
 				_neurons[a * _columns + b].clear();
 			}
@@ -48,12 +48,12 @@ void Backpropagation::reset() {
 }
 
 void Backpropagation::shift(int last_word) {
-	if (_bptt > 0) {		//shift memory needed for bptt to next time step
-		for (int a = (_bptt + _block - 1); a > 0; a--)
+	if (_time_steps > 0) {		//shift memory needed for bptt to next time step
+		for (int a = (_time_steps + _block - 1); a > 0; a--)
 			_word_history[a] = _word_history[a - 1];
 		_word_history[0] = last_word;
 
-		for (int a = (_bptt + _block - 1); a > 0; a--) 
+		for (int a = (_time_steps + _block - 1); a > 0; a--) 
 			for (int b = 0; b < _columns; b++) {
 				_neurons[a * _columns + b].copy(_neurons[(a - 1) * _columns + b]);
 			}
@@ -66,8 +66,8 @@ void Backpropagation::adjustRowWeights(int row, real alpha, real activation, Neu
 }
 
 void Backpropagation::clearHistory() {
-	if (_bptt > 0) 
-		for (int a = 0; a < _bptt + _block; a++) // ignores __history_buffer (???) 
+	if (_time_steps > 0) 
+		for (int a = 0; a < _time_steps + _block; a++) // ignores __history_buffer (???) 
 			_word_history[a] = 0;
 }
 

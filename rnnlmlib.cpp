@@ -177,8 +177,8 @@ void CRnnLM::saveNet()       //will save the whole network structure
 	fprintf(fo, "direct connections: %lld\n", direct._size);
 	fprintf(fo, "direct order: %d\n", direct._order);
     
-	fprintf(fo, "bptt: %d\n", bp._bptt);
-	fprintf(fo, "bptt block: %d\n", bp._block);
+	fprintf(fo, "bptt: %d\n", bp.getSteps());
+	fprintf(fo, "bptt block: %d\n", bp.getBlock());
     
 	fprintf(fo, "vocabulary size: %d\n", vocab._size);
 	fprintf(fo, "class size: %d\n", wordClass._size);
@@ -335,12 +335,17 @@ void CRnnLM::restoreNet()    //will read whole network structure
 	}
 	//
 	goToDelimiter(':', fi);
-	fscanf(fi, "%d", &bp._bptt);
+	int newsteps;
+	fscanf(fi, "%d", &newsteps);
+	bp.setSteps(newsteps);
 	//
-	if (ver>4) {
+	if (ver > 4) {
+		int newblock;
 		goToDelimiter(':', fi);
-		fscanf(fi, "%d", &bp._block);
-	} else bp._block=10;
+		fscanf(fi, "%d", &newblock);
+		bp.setBlock(newblock);
+	} else
+		bp.setBlock(10);
 	//
 	goToDelimiter(':', fi);
 	fscanf(fi, "%d", &vocab._size);
@@ -754,7 +759,7 @@ void CRnnLM::learn(int last_word, int word)
 		matrix12.learnForClasses(counter, alpha, beta2, vocab, layer1._neurons, layer2._neurons);
 	}
 
-	if (bp._bptt <= 1) {		//bptt==1 -> normal BP
+	if (bp.getSteps() <= 1) {		//bptt==1 -> normal BP
 		layer1.deriveError();
 
 		//weight update 1->0
@@ -778,8 +783,8 @@ void CRnnLM::learn(int last_word, int word)
 	{
 		bp.copy(layer1);
 	
-		if (((counter % bp._block) == 0) || (independent && (word == 0))) {
-			for (step = 0; step < bp._bptt + bp._block - 2; step++) {
+		if (((counter % bp.getBlock()) == 0) || (independent && (word == 0))) {
+			for (step = 0; step < bp.getSteps() + bp.getBlock() - 2; step++) {
 				layer1.deriveError();
 
 				//weight update 1->0
@@ -810,44 +815,46 @@ void CRnnLM::learn(int last_word, int word)
 					layer1._neurons[a].er = layer0._neurons[a + layer0._size - layer1._size].er + bp._neurons[(step + 1) * layer1._size + a].er;
 				}
 	    
-				if (step < bp._bptt + bp._block - 3)
+				if (step < bp.getSteps() + bp.getBlock() - 3)
 				for (a = 0; a < layer1._size; a++) {
 					layer1._neurons[a].ac = bp._neurons[(step + 1) * layer1._size + a].ac;
 					layer0._neurons[a + layer0._size - layer1._size].ac = bp._neurons[(step + 2) * layer1._size + a].ac;
 				}
 			}
 	    
-			for (a=0; a<(bp._bptt+bp._block)*layer1._size; a++) {
+			for (a = 0; a < (bp.getSteps() + bp.getBlock()) * layer1._size; a++) {
 				bp._neurons[a].er=0;
 			}
 
 			layer1.copyActivation(bp);
 
 			for (b=0; b<layer1._size; b++) {		//copy temporary syn0
-				if ((counter%10)==0) {
-					for (a=layer0._size-layer1._size; a<layer0._size; a++) {
-						matrix01._synapses[a+b*layer0._size].weight+=bp._synapses[a+b*layer0._size].weight - matrix01._synapses[a+b*layer0._size].weight*beta2;
-						bp._synapses[a+b*layer0._size].weight=0;
+				if ((counter % 10) == 0) {
+					for (a = layer0._size - layer1._size; a < layer0._size; a++) {
+						matrix01._synapses[a + b * layer0._size].weight += bp._synapses[a + b * layer0._size].weight - matrix01._synapses[a + b * layer0._size].weight * beta2;
+						bp._synapses[a + b * layer0._size].weight = 0;
 					}
 				}
 				else {
-					for (a=layer0._size-layer1._size; a<layer0._size; a++) {
-						matrix01._synapses[a+b*layer0._size].weight+=bp._synapses[a+b*layer0._size].weight;
-						bp._synapses[a+b*layer0._size].weight=0;
+					for (a = layer0._size - layer1._size; a < layer0._size; a++) {
+						matrix01._synapses[a + b * layer0._size].weight += bp._synapses[a + b * layer0._size].weight;
+						bp._synapses[a + b * layer0._size].weight = 0;
 					}
 				}
 	    
-				if ((counter % 10)==0) {
-					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.wordFromPast(step)!=-1) {
-						matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight - matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight*beta2;
-						bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
-					}
+				if ((counter % 10) == 0) {
+					for (step = 0; step < bp.getSteps() + bp.getBlock() - 2; step++) 
+						if (bp.wordFromPast(step)!=-1) {
+							matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight - matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight*beta2;
+							bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
+						}
 				}
 				else {
-					for (step=0; step<bp._bptt+bp._block-2; step++) if (bp.wordFromPast(step)!=-1) {
-						matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight;
-						bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
-					}
+					for (step = 0; step < bp.getSteps() + bp.getBlock() - 2; step++) 
+						if (bp.wordFromPast(step)!=-1) {
+							matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight;
+							bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
+						}
 				}
 			}
 		}
