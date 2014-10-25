@@ -6,18 +6,19 @@
 
 #include "synapse.h"
 #include "neuron.h"
+#include "word_class.h"
 #include "vocabulary.h"
 
 class Matrix {
-public:
-	Synapse *_synapses;
+private:
 	int _rows;
 	int _columns;
+	Synapse *_synapses;
 
+public:
 	Matrix() {
 		_synapses = NULL;
 	}
-
 	~Matrix() {
 		if (NULL != _synapses) free(_synapses);
 	}
@@ -36,6 +37,10 @@ public:
 	void adjustColumnWeightsBeta2(int, real, real, const Neuron [], const Neuron []);
 	void learnForWords(int, int, real, real, const Vocabulary &, const WordClass &, const Neuron [], const Neuron []);
 	void learnForClasses(int, real, real, const Vocabulary &, const Neuron [], const Neuron []);
+	int getRows() const { return _rows; };
+	int getColumns() const { return _columns; };
+	real getWeight(int which) const { return _synapses[which].weight; };
+	void incrementWeight(int which, real amount) { _synapses[which].weight += amount; };
 };
 
 class MatrixBackup : public Matrix {

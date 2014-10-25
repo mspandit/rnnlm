@@ -3,7 +3,7 @@
 #define _LAYER_H_
 
 #include "neuron.h"
-#include "synapse.h"
+#include "matrix.h"
 #include "word_class.h"
 
 class Backpropagation;
@@ -33,7 +33,7 @@ public:
 	void scan(FILE *);
 	void read(FILE *);
 	void setActivation(real);
-	void receiveActivation(Layer &, int, Synapse []);
+	void receiveActivation(Layer &, int, const Matrix &);
 	void applySigmoid();
 	void deriveError();
 	real maxActivation(const WordClass &, const Word &);

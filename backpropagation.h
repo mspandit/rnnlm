@@ -14,10 +14,9 @@ private:
 	int _rows;
 	int _columns;
     Neuron *_neurons;
-
-public:
     Synapse *_synapses;
-	
+
+public:	
 	Backpropagation();
 	~Backpropagation();
 	void initialize(int, int);
@@ -34,6 +33,8 @@ public:
 	int getBlock() const { return _block; };
 	real getActivation(int which) const { return _neurons[which].ac; };
 	real getError(int which) const { return _neurons[which].er; };
+	real getWeight(int which) const { return _synapses[which].weight; };
+	void setWeight(int which, real weight) { _synapses[which].weight = weight; };
 };
 
 #endif

@@ -490,12 +490,12 @@ void CRnnLM::matrixXvector(
 	    
 			for (a=from2; a<to2; a++)
 				for (int c = 0; c < sizeof(val) / sizeof(real); c++)
-					dest._neurons[b*(sizeof(val) / sizeof(real))+from+c].ac += src._neurons[a].ac * matrix._synapses[a+(b*(sizeof(val) / sizeof(real))+from+c)*matrix_width].weight;
+					dest._neurons[b*(sizeof(val) / sizeof(real))+from+c].ac += src._neurons[a].ac * matrix.getWeight(a + (b * (sizeof(val) / sizeof(real)) + from + c) * matrix_width);
 		}
     
 		for (b=b*(sizeof(val) / sizeof(real)); b<to-from; b++) {
 			for (a=from2; a<to2; a++) {
-				dest._neurons[b+from].ac += src._neurons[a].ac * matrix._synapses[a+(b+from)*matrix_width].weight;
+				dest._neurons[b+from].ac += src._neurons[a].ac * matrix.getWeight(a + (b + from) * matrix_width);
 			}
 		}
 	}
@@ -506,14 +506,14 @@ void CRnnLM::matrixXvector(
 	    
 			for (b=from; b<to; b++)
 				for (int c = 0; c < (sizeof(val) / sizeof(real)); c++)
-					val[c] += src._neurons[b].er * matrix._synapses[a*(sizeof(val) / sizeof(real))+from2+c+b*matrix_width].weight;
+					val[c] += src._neurons[b].er * matrix.getWeight(a * (sizeof(val) / sizeof(real)) + from2 + c + b * matrix_width);
 			for (int c = 0; (c < sizeof(val) / sizeof(real)); c++)
 				dest._neurons[a*(sizeof(val) / sizeof(real))+from2+c].er += val[c];
 		}
 	
 		for (a=a*(sizeof(val) / sizeof(real)); a<to2-from2; a++) {
 			for (b=from; b<to; b++) {
-				dest._neurons[a+from2].er += src._neurons[b].er * matrix._synapses[a+from2+b*matrix_width].weight;
+				dest._neurons[a+from2].er += src._neurons[b].er * matrix.getWeight(a+from2+b*matrix_width);
 			}
 		}
     	
@@ -572,12 +572,12 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	
 	// Propagate activation of portion from input layer storing prior hidden layer to full current hidden layer,
 	// using weight matrix
-	matrixXvector(layer1, layer0, matrix01, matrix01._rows, 0, layer1._size, layer0._size - layer1._size, layer0._size, 0);
+	matrixXvector(layer1, layer0, matrix01, matrix01.getRows(), 0, layer1._size, layer0._size - layer1._size, layer0._size, 0);
 
 	// Propagate activation of last word (only) into current hidden layer
 	if (last_word != -1) {
 		layer0._neurons[last_word].ac = 1;
-		layer1.receiveActivation(layer0, last_word, matrix01._synapses);
+		layer1.receiveActivation(layer0, last_word, matrix01);
 	}
 	//activate 1      --sigmoid
     layer1.applySigmoid();
@@ -585,18 +585,18 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	if (layerc._size>0) {
 		layerc.clearActivation();
 		// Propagate activation of current hidden layer into current compression layer
-		matrixXvector(layerc, layer1, matrix12, matrix12._rows, 0, layerc._size, 0, layer1._size, 0);
+		matrixXvector(layerc, layer1, matrix12, matrix12.getRows(), 0, layerc._size, 0, layer1._size, 0);
 		//activate compression      --sigmoid
 		layerc.applySigmoid();
 		//1->2 class
 		layer2.clearActivationRange(vocab._size, layer2._size);
 		// Propagate activation of current compression layer into class portion of output layer
-		matrixXvector(layer2, layerc, matrixc2, matrixc2._rows, vocab._size, layer2._size, 0, layerc._size, 0);
+		matrixXvector(layer2, layerc, matrixc2, matrixc2.getRows(), vocab._size, layer2._size, 0, layerc._size, 0);
 	} else {
 		//1->2 class
 		layer2.clearActivationRange(vocab._size, layer2._size);
 		// Propagate activation of layer 1 into class portion of output layer
-		matrixXvector(layer2, layer1, matrix12, matrix12._rows, vocab._size, layer2._size, 0, layer1._size, 0);
+		matrixXvector(layer2, layer1, matrix12, matrix12.getRows(), vocab._size, layer2._size, 0, layer1._size, 0);
 	}
 
 	direct.applyToClasses(layer2._neurons, vocab, layer2._size);
@@ -616,7 +616,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 				layer2,
 				layerc,
 				matrixc2,
-				matrixc2._rows,
+				matrixc2.getRows(),
 				wordClass.firstWordInClass(vocab._words[word].class_index),
 				wordClass.lastWordInClass(vocab._words[word].class_index),
 				0, 
@@ -631,7 +631,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 				layer2,
 				layer1,
 				matrix12,
-				matrix12._rows,
+				matrix12.getRows(),
 				wordClass.firstWordInClass(vocab._words[word].class_index),
 				wordClass.lastWordInClass(vocab._words[word].class_index),
 				0,
@@ -684,7 +684,7 @@ void CRnnLM::learn(int last_word, int word)
 			layerc,
 			layer2,
 			matrixc2,
-			matrixc2._columns,
+			matrixc2.getColumns(),
 			wordClass.firstWordInClass(vocab._words[word].class_index),
 			wordClass.lastWordInClass(vocab._words[word].class_index),
 			0,
@@ -699,7 +699,7 @@ void CRnnLM::learn(int last_word, int word)
 			layerc,
 			layer2,
 			matrixc2,
-			matrixc2._columns,
+			matrixc2.getColumns(),
 			vocab._size,
 			layer2._size,
 			0, 
@@ -716,7 +716,7 @@ void CRnnLM::learn(int last_word, int word)
 			layer1,
 			layerc,
 			matrix12,
-			matrix12._columns,
+			matrix12.getColumns(),
 			0,
 			layerc._size,
 			0,
@@ -733,7 +733,7 @@ void CRnnLM::learn(int last_word, int word)
 			layer1,
 			layer2,
 			matrix12,
-			matrix12._rows,
+			matrix12.getRows(),
 			wordClass._words[vocab._words[word].class_index][0],
 			wordClass._words[vocab._words[word].class_index][0] + wordClass._word_count[vocab._words[word].class_index],
 			0,
@@ -748,7 +748,7 @@ void CRnnLM::learn(int last_word, int word)
 			layer1,
 			layer2,
 			matrix12,
-			matrix12._rows,
+			matrix12.getRows(),
 			vocab._size,
 			layer2._size,
 			0,
@@ -799,7 +799,7 @@ void CRnnLM::learn(int last_word, int word)
 					layer0,
 					layer1,
 					matrix01,
-					matrix01._rows,
+					matrix01.getRows(),
 					0,
 					layer1._size,
 					layer0._size-layer1._size,
@@ -829,29 +829,38 @@ void CRnnLM::learn(int last_word, int word)
 			for (b=0; b<layer1._size; b++) {		//copy temporary syn0
 				if ((counter % 10) == 0) {
 					for (a = layer0._size - layer1._size; a < layer0._size; a++) {
-						matrix01._synapses[a + b * layer0._size].weight += bp._synapses[a + b * layer0._size].weight - matrix01._synapses[a + b * layer0._size].weight * beta2;
-						bp._synapses[a + b * layer0._size].weight = 0;
+						matrix01.incrementWeight(
+							a + b * layer0._size, 
+							bp.getWeight(a + b * layer0._size) - matrix01.getWeight(a + b * layer0._size) * beta2
+						);
+						bp.setWeight(a + b * layer0._size, 0);
 					}
 				}
 				else {
 					for (a = layer0._size - layer1._size; a < layer0._size; a++) {
-						matrix01._synapses[a + b * layer0._size].weight += bp._synapses[a + b * layer0._size].weight;
-						bp._synapses[a + b * layer0._size].weight = 0;
+						matrix01.incrementWeight(a + b * layer0._size, bp.getWeight(a + b * layer0._size));
+						bp.setWeight(a + b * layer0._size, 0);
 					}
 				}
 	    
 				if ((counter % 10) == 0) {
 					for (step = 0; step < bp.getSteps() + bp.getBlock() - 2; step++) 
 						if (bp.wordFromPast(step)!=-1) {
-							matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight - matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight*beta2;
-							bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
+							matrix01.incrementWeight(
+								bp.wordFromPast(step) + b * layer0._size,
+								bp.getWeight(bp.wordFromPast(step) + b * layer0._size) - matrix01.getWeight(bp.wordFromPast(step) + b * layer0._size) * beta2
+							);
+							bp.setWeight(bp.wordFromPast(step) + b * layer0._size, 0);
 						}
 				}
 				else {
 					for (step = 0; step < bp.getSteps() + bp.getBlock() - 2; step++) 
 						if (bp.wordFromPast(step)!=-1) {
-							matrix01._synapses[bp.wordFromPast(step)+b*layer0._size].weight+=bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight;
-							bp._synapses[bp.wordFromPast(step)+b*layer0._size].weight=0;
+							matrix01.incrementWeight(
+								bp.wordFromPast(step) + b * layer0._size,
+								bp.getWeight(bp.wordFromPast(step) + b * layer0._size)
+							);
+							bp.setWeight(bp.wordFromPast(step) + b * layer0._size, 0);
 						}
 				}
 			}
@@ -1336,7 +1345,7 @@ void CRnnLM::testGen()
 			layer2,
 			layer1,
 			matrix12,
-			matrix12._rows,
+			matrix12.getRows(),
 			wordClass._words[cla][0],
 			wordClass._words[cla][0] + wordClass._word_count[cla],
 			0,

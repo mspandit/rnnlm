@@ -68,9 +68,9 @@ void Layer::clearError()
 		_neurons[neuron_index].er = 0;
 }
 
-void Layer::receiveActivation(Layer &src, int src_index, Synapse matrix[]) {
+void Layer::receiveActivation(Layer &src, int src_index, const Matrix &matrix) {
 	for (int index = 0; index < _size; index++)
-		_neurons[index].ac += src._neurons[src_index].ac * matrix[src_index + index * src._size].weight;
+		_neurons[index].ac += src._neurons[src_index].ac * matrix.getWeight(src_index + index * src._size);
 }
 
 void Layer::applySigmoid()
