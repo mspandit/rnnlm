@@ -60,9 +60,9 @@ void Backpropagation::shift(int last_word) {
 	}
 }
 
-void Backpropagation::adjustRowWeights(int row, real alpha, real activation, Neuron neurons[]) {
+void Backpropagation::adjustRowWeights(int row, real alpha, real activation, const Layer &column_layer) {
 	for (int column = 0; column < _columns; column++)
-		_synapses[row + column * _rows].weight += alpha * neurons[column].er * activation;
+		_synapses[row + column * _rows].weight += alpha * column_layer.getError(column) * activation;
 }
 
 void Backpropagation::clearHistory() {
@@ -78,6 +78,8 @@ void Backpropagation::clearColumnErrors() {
 }
 
 void Backpropagation::copy(const Layer &layer) {
-	for (int b = 0; b < layer._size; b++) 
-		_neurons[b].copy(layer._neurons[b]);
+	for (int b = 0; b < layer.getSize(); b++) {
+		_neurons[b].ac = layer.getActivation(b);
+		_neurons[b].er = layer.getError(b);
+	}
 }

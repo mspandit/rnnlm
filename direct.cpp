@@ -23,7 +23,7 @@ void Direct::clearHistory() {
 		_history[a] = 0;
 }
 
-void Direct::applyToClasses(Neuron neurons[], const Vocabulary &vocab, int layer2_size) {
+void Direct::applyToClasses(Layer &layer, const Vocabulary &vocab, int layer2_size) {
 	// Apply direct connections from earlier classes to current classes (???)
 	if (_size>0) {
 		unsigned long long hash[MAX_NGRAM_ORDER];	//this will hold pointers to _synapses that contains hash parameters
@@ -41,7 +41,7 @@ void Direct::applyToClasses(Neuron neurons[], const Vocabulary &vocab, int layer
 		for (int a = vocab.getSize(); a < layer2_size; a++) {
 			for (int b = 0; b < _order; b++) 
 				if (hash[b]) {
-					neurons[a].ac += _synapses[hash[b]];		//apply current parameter and move to the next one
+					layer.incrementActivation(a, _synapses[hash[b]]); //apply current parameter and move to the next one
 					hash[b]++;
 				} else 
 					break;
@@ -49,7 +49,7 @@ void Direct::applyToClasses(Neuron neurons[], const Vocabulary &vocab, int layer
 	}
 }
 
-void Direct::applyToWords(Neuron neurons[], int class_index, const WordClass &wordClass) {
+void Direct::applyToWords(Layer &layer, int class_index, const WordClass &wordClass) {
 	//apply direct connections from earlier words to current word (???)
 	if (_size > 0) {
 		unsigned long long hash[MAX_NGRAM_ORDER];
@@ -67,7 +67,7 @@ void Direct::applyToWords(Neuron neurons[], int class_index, const WordClass &wo
 			int a = wordClass.getWord(class_index, c);
 			for (int b = 0; b < _order; b++) 
 				if (hash[b]) {
-					neurons[a].ac += _synapses[hash[b]];
+					layer.incrementActivation(a, _synapses[hash[b]]);
 					hash[b]++;
 					hash[b] = hash[b] % _size;
 				} else 
@@ -95,7 +95,7 @@ void Direct::learnForWords(int word, real alpha, real beta3, const Vocabulary &v
 				int a = wordClass.getWord(vocab.getWord(word).class_index, c);
 	    
 				for (int b=0; b<_order; b++) if (hash[b]) {
-					_synapses[hash[b]]+=alpha*layer2._neurons[a].er - _synapses[hash[b]]*beta3;
+					_synapses[hash[b]] += alpha * layer2.getError(a) - _synapses[hash[b]] * beta3;
 					hash[b]++;
 					hash[b]=hash[b]%_size;
 				} else break;
@@ -120,22 +120,28 @@ void Direct::learnForClasses(int word, real alpha, real beta3, const Vocabulary 
 			hash[a]=hash[a]%(_size/2);
 		}
 	
-		for (int a=vocab.getSize(); a<layer2._size; a++) {
+		for (int a=vocab.getSize(); a<layer2.getSize(); a++) {
 			for (int b=0; b<_order; b++) if (hash[b]) {
-				_synapses[hash[b]] += alpha * layer2._neurons[a].er - _synapses[hash[b]] * beta3;
+				_synapses[hash[b]] += alpha * layer2.getError(a) - _synapses[hash[b]] * beta3;
 				hash[b]++;
 			} else break;
 		}
 	}
 }
 
-void Direct::initialize() {
+void Direct::initialize(long long newsize) {
+	 _size = newsize;
 	_synapses = (direct_t *)calloc((long long)_size, sizeof(direct_t));
 	if (_synapses==NULL) {
 		printf("Memory allocation for direct connections failed (requested %lld bytes)\n", (long long)_size * (long long)sizeof(direct_t));
 		exit(1);
 	}
 	for (long long aa = 0; aa < _size; aa++) _synapses[aa]=0;
+}
+
+void Direct::setSize(long long newsize) {
+	if (_size != newsize)
+		initialize(newsize);		
 }
 
 void Direct::print(FILE *fo) {

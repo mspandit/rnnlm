@@ -2,6 +2,8 @@
 
 #define _DIRECT_H_
 
+#include "layer.h"
+
 typedef WEIGHTTYPE direct_t;	// ME weights
 
 class Direct {
@@ -26,12 +28,12 @@ public:
 	    if (_synapses != NULL) free(_synapses);
 	}
 	long long getSize() const { return _size; };
-	void setSize(long long newsize) { _size = newsize; };
+	void setSize(long long);
 	int getOrder() const { return _order; };
 	void setOrder(int neworder) { _order = neworder; };
-	void initialize();
-	void applyToClasses(Neuron [], const Vocabulary &, int);
-	void applyToWords(Neuron [], int, const WordClass &);
+	void initialize(long long);
+	void applyToClasses(Layer &, const Vocabulary &, int);
+	void applyToWords(Layer &, int, const WordClass &);
 	void learnForClasses(int, real, real, const Vocabulary &, const Layer &);
 	void learnForWords(int, real, real, const Vocabulary &, const WordClass &, const Layer &);
 	void clearHistory();

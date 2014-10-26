@@ -22,7 +22,7 @@ public:
 	void initialize(int, int);
 	void reset();
 	void shift(int);
-	void adjustRowWeights(int, real, real, Neuron []);
+	void adjustRowWeights(int, real, real, const Layer &);
 	void copy(const Layer &);
 	int wordFromPast(int step) { return _word_history[step]; }
 	void clearHistory();

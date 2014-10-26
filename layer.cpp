@@ -12,6 +12,11 @@ void Layer::initialize(int size) {
 	_neurons = (Neuron *)calloc(_size, sizeof(Neuron));
 }
 
+void Layer::setSize(int size) {
+	if (_size != size)
+		initialize(size);
+}
+
 void Layer::copy(const Layer &src) {
 	for (int a = 0; a < _size; a++) {
 		_neurons[a].copy(src._neurons[a]);
@@ -52,25 +57,37 @@ void Layer::clear() {
 	}
 }
 
-void Layer::setActivation(real activation) {
+void Layer::inputClear(int num_state_neurons) {
+	for (int a = 0; a < (_size - num_state_neurons); a++)
+		_neurons[a].clear();
+	for (int a = _size - num_state_neurons; a < _size; a++) {   //last hidden layer is initialized to vector of 0.1 values to prevent unstability
+		_neurons[a].ac=0.1;
+		_neurons[a].er=0;
+	}
+}
+
+void Layer::setAllActivation(real activation) {
 	for (int a = 0; a < _size; a++)
-		_neurons[a].ac = 1.0;
+		_neurons[a].ac = activation;
 }
 
-void Layer::clearActivation() {
-	for (int neuron_index = 0; neuron_index < _size; neuron_index++) 
-		_neurons[neuron_index].ac = 0;	
-}
-
-void Layer::clearError()
+void Layer::setAllError(real error)
 {
 	for (int neuron_index = 0; neuron_index < _size; neuron_index++) 
-		_neurons[neuron_index].er = 0;
+		_neurons[neuron_index].er = error;
 }
 
 void Layer::receiveActivation(Layer &src, int src_index, const Matrix &matrix) {
 	for (int index = 0; index < _size; index++)
 		_neurons[index].ac += src._neurons[src_index].ac * matrix.getWeight(src_index + index * src._size);
+}
+
+void Layer::incrementActivation(int neuron_index, real increment) {
+	_neurons[neuron_index].ac += increment;
+}
+
+void Layer::incrementError(int neuron_index, real increment) {
+	_neurons[neuron_index].er += increment;
 }
 
 void Layer::applySigmoid()
@@ -125,15 +142,15 @@ void Layer::normalizeActivation(int vocab_size) {
 		_neurons[layer2_index].ac = fasterexp(_neurons[layer2_index].ac - max) / sum;
 }
 
-void Layer::clearActivationRange(int first_neuron, int num_neurons)
+void Layer::setActivationRange(int first_neuron, int num_neurons, real activation)
 {
 	for (int neuron_index = first_neuron; neuron_index < num_neurons; neuron_index++) 
-		_neurons[neuron_index].ac = 0;
+		_neurons[neuron_index].ac = activation;
 }
 
-void Layer::clearErrorRange(int first_neuron, int num_neurons) {
+void Layer::setErrorRange(int first_neuron, int num_neurons, real error) {
 	for (int a = first_neuron; a < num_neurons; a++)
-		_neurons[a].er = 0;
+		_neurons[a].er = error;
 }
 
 void LayerBackup::initialize(int size) {

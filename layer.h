@@ -7,12 +7,14 @@
 #include "word_class.h"
 
 class Backpropagation;
+class Matrix;
 
 class Layer {
-public:
+private:
 	Neuron *_neurons;
 	int _size;
 
+public:
 	Layer() {
 		_neurons = NULL;
 		_size = 0;
@@ -20,20 +22,28 @@ public:
 	~Layer() {
 		if (_neurons != NULL) free(_neurons);
 	}
+	int getSize() const { return _size; }
+	void setSize(int);
 	virtual void initialize(int);
 	void copy(const Layer &);
 	void copyActivation(const Backpropagation &);
-	void clearActivation();
-	void clearActivationRange(int, int);
-	void clearError();
-	void clearErrorRange(int, int);
 	void clear();
+	void inputClear(int);
 	void print(FILE *);
 	void write(FILE *);
 	void scan(FILE *);
 	void read(FILE *);
-	void setActivation(real);
+	void setAllActivation(real);
+	void setAllError(real);
+	real getActivation(int neuron_index) const { return _neurons[neuron_index].ac; }
+	void setActivation(int neuron_index, real activation) { _neurons[neuron_index].ac = activation; }
+	void setActivationRange(int, int, real);
+	real getError(int neuron_index) const { return _neurons[neuron_index].er; }
+	void setError(int neuron_index, real error) { _neurons[neuron_index].er = error; }
+	void setErrorRange(int, int, real);
 	void receiveActivation(Layer &, int, const Matrix &);
+	void incrementActivation(int, real);
+	void incrementError(int, real);
 	void applySigmoid();
 	void deriveError();
 	real maxActivation(const WordClass &, const Word &);
