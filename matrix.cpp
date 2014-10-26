@@ -89,8 +89,8 @@ void Matrix::adjustColumnWeightsBeta2(int column, real alpha, real beta2, const 
 		_synapses[row + column * _rows].weight += alpha * column_neurons[column].er * row_neurons[row].ac - _synapses[row + column * _rows].weight * beta2;
 }
 void Matrix::learnForWords(int word, int counter, real alpha, real beta2, const Vocabulary &vocab, const WordClass &wordClass, const Neuron layer1_neurons[], const Neuron layer2_neurons[]) {
-	for (int c = 0; c < wordClass._word_count[vocab.getWord(word).class_index]; c++) {
-		int column = wordClass._words[vocab.getWord(word).class_index][c];
+	for (int c = 0; c < wordClass.wordCount(vocab.getWord(word).class_index); c++) {
+		int column = wordClass.getWord(vocab.getWord(word).class_index, c);
 		if ((counter % 10) == 0)	//regularization is done every 10 steps
 			adjustColumnWeightsBeta2(column, alpha, beta2, layer1_neurons, layer2_neurons);
 		else

@@ -121,7 +121,7 @@ public:
 
 		rand_seed=1;
 
-		wordClass._size=100;
+		wordClass.setSize(100);
 		old_classes=0;
 
 		one_iter=0;
@@ -140,7 +140,7 @@ public:
     
     void setFileType(int newt) {filetype=newt;}
     
-    void setClassSize(int newSize) {wordClass._size=newSize;}
+    void setClassSize(int newSize) { wordClass.setSize(newSize); }
     void setOldClasses(int newVal) {old_classes=newVal;}
     void setLambda(real newLambda) {lambda=newLambda;}
     void setGradientCutoff(real newGradient) {gradient_cutoff=newGradient;}

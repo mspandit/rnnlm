@@ -87,8 +87,8 @@ void Layer::deriveError() {
 real Layer::maxActivation(const WordClass &wordClass, const Word &word) {
 	real maxAc = -FLT_MAX;
 	
-	for (int c = 0; c < wordClass._word_count[word.class_index]; c++) {
-		int a = wordClass._words[word.class_index][c];
+	for (int c = 0; c < wordClass.wordCount(word.class_index); c++) {
+		int a = wordClass.getWord(word.class_index, c);
 		if (_neurons[a].ac > maxAc)
 			maxAc = _neurons[a].ac;
 	}
@@ -97,8 +97,8 @@ real Layer::maxActivation(const WordClass &wordClass, const Word &word) {
 
 double Layer::sumSigmoid(const WordClass &wordClass, const Word &word, real maxAc) {
 	double sum = 0.0;
-	for (int c = 0; c < wordClass._word_count[word.class_index]; c++) {
-		sum += fasterexp(_neurons[wordClass._words[word.class_index][c]].ac - maxAc);
+	for (int c = 0; c < wordClass.wordCount(word.class_index); c++) {
+		sum += fasterexp(_neurons[wordClass.getWord(word.class_index, c)].ac - maxAc);
 	}
 	return sum;
 }
@@ -107,8 +107,8 @@ void Layer::setSigmoidActivation(const WordClass &wordClass, const Word &word) {
 	real maxAc = maxActivation(wordClass, word);
 	double sum = sumSigmoid(wordClass, word, maxAc);
 
-	for (int c = 0; c < wordClass._word_count[word.class_index]; c++) {
-		int a = wordClass._words[word.class_index][c];
+	for (int c = 0; c < wordClass.wordCount(word.class_index); c++) {
+		int a = wordClass.getWord(word.class_index, c);
 		_neurons[a].ac=fasterexp(_neurons[a].ac-maxAc)/sum; //this prevents the need to check for overflow
 	}
 }

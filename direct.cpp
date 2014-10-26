@@ -63,8 +63,8 @@ void Direct::applyToWords(Neuron neurons[], int class_index, const WordClass &wo
 			hash[a] = (hash[a] % (_size / 2)) + (_size / 2);
 		}
 
-		for (int c = 0; c < wordClass._word_count[class_index]; c++) {
-			int a = wordClass._words[class_index][c];
+		for (int c = 0; c < wordClass.wordCount(class_index); c++) {
+			int a = wordClass.getWord(class_index, c);
 			for (int b = 0; b < _order; b++) 
 				if (hash[b]) {
 					neurons[a].ac += _synapses[hash[b]];
@@ -91,8 +91,8 @@ void Direct::learnForWords(int word, real alpha, real beta3, const Vocabulary &v
 				hash[a]=(hash[a]%(_size/2))+(_size)/2;
 			}
 	
-			for (int c = 0; c<wordClass._word_count[vocab.getWord(word).class_index]; c++) {
-				int a = wordClass._words[vocab.getWord(word).class_index][c];
+			for (int c = 0; c < wordClass.wordCount(vocab.getWord(word).class_index); c++) {
+				int a = wordClass.getWord(vocab.getWord(word).class_index, c);
 	    
 				for (int b=0; b<_order; b++) if (hash[b]) {
 					_synapses[hash[b]]+=alpha*layer2._neurons[a].er - _synapses[hash[b]]*beta3;
