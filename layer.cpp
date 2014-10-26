@@ -167,3 +167,10 @@ void LayerBackup::backup(int which_backup) {
 void LayerBackup::restore(int which_backup) {
 	this->copy(_backups[which_backup]);
 }
+
+void OutputLayer::initialize(const Vocabulary *vocab, const WordClass *wordClass) {
+	LayerBackup::initialize(vocab->getSize() + wordClass->getSize());
+	
+	_vocab = vocab;
+	_wordClass = wordClass;
+}

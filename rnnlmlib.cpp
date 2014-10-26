@@ -109,9 +109,7 @@ void CRnnLM::initialize()
 	matrix01.initialize(layer0.getSize(), layer1.getSize());
 	matrix01.randomize();
 
-	// Output layer 2 includes neurons for vocabulary and
-	// neurons for word classes
-	layer2.initialize(vocab.getSize() + wordClass.getSize());
+	layer2.initialize(&vocab, &wordClass);
 	layer2.clear();
 	
 	if (layerc.getSize() == 0) {

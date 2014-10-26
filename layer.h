@@ -4,6 +4,7 @@
 
 #include "neuron.h"
 #include "matrix.h"
+#include "vocabulary.h"
 #include "word_class.h"
 
 class Backpropagation;
@@ -56,9 +57,20 @@ class LayerBackup : public Layer {
 	Layer _backups[2];
 
 public:
-	void initialize(int);
+	virtual void initialize(int);
 	void backup(int);
 	void restore(int);
+};
+
+class OutputLayer : public LayerBackup {
+private:
+	Vocabulary const *_vocab;
+	WordClass const *_wordClass;
+
+public:
+	OutputLayer() { LayerBackup::LayerBackup(); _vocab = NULL; _wordClass = NULL; }
+	using LayerBackup::initialize;
+	virtual void initialize(const Vocabulary *, const WordClass *);
 };
 
 #endif

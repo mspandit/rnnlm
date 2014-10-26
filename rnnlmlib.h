@@ -68,7 +68,7 @@ protected:
     LayerBackup layer0;		//neurons in input layer
     LayerBackup layer1;		//neurons in hidden layer
     LayerBackup layerc;		//neurons in hidden layer
-    LayerBackup layer2;		//neurons in output layer
+    OutputLayer layer2;		//neurons in output layer
     
 	MatrixBackup matrix01;
     MatrixBackup matrix12;		//weights between hidden and output layer (or hidden and compression if compression>0)
