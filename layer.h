@@ -11,7 +11,7 @@ class Backpropagation;
 class Matrix;
 
 class Layer {
-private:
+protected:
 	Neuron *_neurons;
 	int _size;
 
@@ -47,13 +47,10 @@ public:
 	void incrementError(int, real);
 	void applySigmoid();
 	void deriveError();
-	real maxActivation(const WordClass &, const Word &);
-	double sumSigmoid(const WordClass &, const Word &, real);
-	void setSigmoidActivation(const WordClass &, const Word &);
-	void normalizeActivation(int);
 };
 
 class LayerBackup : public Layer {
+protected:
 	Layer _backups[2];
 
 public:
@@ -67,10 +64,18 @@ private:
 	Vocabulary const *_vocab;
 	WordClass const *_wordClass;
 
+	real maxActivation(int class_index);
+	double sumSigmoid(int class_index, real);
+
 public:
 	OutputLayer() { LayerBackup::LayerBackup(); _vocab = NULL; _wordClass = NULL; }
 	using LayerBackup::initialize;
 	virtual void initialize(const Vocabulary *, const WordClass *);
+	void setErrorsWord(int);
+	void setClassActivation(int, real);
+	void setAllClassActivation(real);
+	void normalizeClassActivation();
+	void setClassSigmoidActivation(int);
 };
 
 #endif

@@ -558,12 +558,6 @@ void CRnnLM::slowMatrixXvector(
 	}
 }
 
-void CRnnLM::clearClassActivation(int word)
-{
-	for (int c = 0; c < wordClass.wordCount(vocab.getWord(word).class_index); c++)
-		layer2.setActivation(wordClass.getWord(vocab.getWord(word).class_index, c), 0);
-}
-
 void CRnnLM::computeProbDist(int last_word, int word)
 {
 	//propagate 0->1
@@ -588,19 +582,19 @@ void CRnnLM::computeProbDist(int last_word, int word)
 		//activate compression      --sigmoid
 		layerc.applySigmoid();
 		//1->2 class
-		layer2.setActivationRange(vocab.getSize(), layer2.getSize(), 0);
+		layer2.setAllClassActivation(0);
 		// Propagate activation of current compression layer into class portion of output layer
 		matrixXvector(layer2, layerc, matrixc2, matrixc2.getRows(), vocab.getSize(), layer2.getSize(), 0, layerc.getSize(), 0);
 	} else {
 		//1->2 class
-		layer2.setActivationRange(vocab.getSize(), layer2.getSize(), 0);
+		layer2.setAllClassActivation(0);
 		// Propagate activation of layer 1 into class portion of output layer
 		matrixXvector(layer2, layer1, matrix12, matrix12.getRows(), vocab.getSize(), layer2.getSize(), 0, layer1.getSize(), 0);
 	}
 
 	direct.applyToClasses(layer2, vocab, layer2.getSize());
 
-	layer2.normalizeActivation(vocab.getSize());
+	layer2.normalizeClassActivation();
  
 	if (gen > 0)
 		return;	//if we generate words, we don't know what current word is -> only classes are estimated and word is selected in testGen()
@@ -608,7 +602,7 @@ void CRnnLM::computeProbDist(int last_word, int word)
 	//1->2 word
     
 	if (word != -1) {
-		clearClassActivation(word);
+		layer2.setClassActivation(vocab.getWord(word).class_index, 0.0);
 		if (layerc.getSize() > 0) {
 			// Propagate activation of compression layer into words portion of output layer
 			matrixXvector(
@@ -641,27 +635,8 @@ void CRnnLM::computeProbDist(int last_word, int word)
 
 		direct.applyToWords(layer2, vocab.getWord(word).class_index, wordClass);
 
-		layer2.setSigmoidActivation(wordClass, vocab.getWord(word));
+		layer2.setClassSigmoidActivation(vocab.getWord(word).class_index);
 	}
-}
-
-void CRnnLM::setOutputErrors(int word)
-{
-	for (int c = 0; c < wordClass.wordCount(vocab.getWord(word).class_index); c++) {
-		layer2.setError(
-			wordClass.getWord(vocab.getWord(word).class_index, c),
-			(0 - layer2.getActivation(wordClass.getWord(vocab.getWord(word).class_index, c)))
-		);
-	}
-	layer2.setError(word, 1 - layer2.getActivation(word));	//word part
-
-	for (int a = vocab.getSize(); a < layer2.getSize(); a++) {
-		layer2.setError(a, (0 - layer2.getActivation(a)));
-	}
-	layer2.setError(
-		vocab.getSize() + vocab.getWord(word).class_index,
-		(1 - layer2.getActivation(vocab.getSize() + vocab.getWord(word).class_index))
-	);	//class part
 }
 
 void CRnnLM::learn(int last_word, int word)
@@ -674,7 +649,7 @@ void CRnnLM::learn(int last_word, int word)
 
 	if (word == -1) return;
 
-	setOutputErrors(word);
+	layer2.setErrorsWord(word);
 
 	//flush error
 	layer1.setAllError(0);
