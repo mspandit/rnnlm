@@ -655,7 +655,8 @@ void CRnnLM::learn(int last_word, int word)
 	layer1.setAllError(0);
 	layerc.setAllError(0);
     
-	direct.learnForWords(word, alpha, beta3, vocab, wordClass, layer2);
+	if (-1 != word)
+		direct.learnForWords(alpha, beta3, vocab.getWord(word).class_index, wordClass, layer2);
 	direct.learnForClasses(word, alpha, beta3, vocab, layer2);
     
 	if (layerc.getSize()>0) {

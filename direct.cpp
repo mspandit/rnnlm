@@ -76,30 +76,28 @@ void Direct::applyToWords(Layer &layer, int class_index, const WordClass &wordCl
 	}
 }
 
-void Direct::learnForWords(int word, real alpha, real beta3, const Vocabulary &vocab, const WordClass &wordClass, const Layer &layer2) {
+void Direct::learnForWords(real alpha, real beta3, int class_index, const WordClass &wordClass, const Layer &layer2) {
 	if (_size > 0) {	//learn direct connections between words
-		if (word != -1) {
-			unsigned long long hash[MAX_NGRAM_ORDER];
-	    
-			for (int a=0; a<_order; a++) hash[a]=0;
-	
-			for (int a=0; a<_order; a++) {
-				if (a>0) if (_history[a-1]==-1) break;
-				hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(vocab.getWord(word).class_index+1);
-				
-				for (int b = 1; b <= a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(_history[b-1]+1);
-				hash[a]=(hash[a]%(_size/2))+(_size)/2;
-			}
-	
-			for (int c = 0; c < wordClass.wordCount(vocab.getWord(word).class_index); c++) {
-				int a = wordClass.getWord(vocab.getWord(word).class_index, c);
-	    
-				for (int b=0; b<_order; b++) if (hash[b]) {
-					_synapses[hash[b]] += alpha * layer2.getError(a) - _synapses[hash[b]] * beta3;
-					hash[b]++;
-					hash[b]=hash[b]%_size;
-				} else break;
-			}
+		unsigned long long hash[MAX_NGRAM_ORDER];
+    
+		for (int a=0; a<_order; a++) hash[a]=0;
+
+		for (int a=0; a<_order; a++) {
+			if (a>0) if (_history[a-1]==-1) break;
+			hash[a]=PRIMES[0]*PRIMES[1]*(unsigned long long)(class_index+1);
+			
+			for (int b = 1; b <= a; b++) hash[a]+=PRIMES[(a*PRIMES[b]+b)%PRIMES_SIZE]*(unsigned long long)(_history[b-1]+1);
+			hash[a]=(hash[a]%(_size/2))+(_size)/2;
+		}
+
+		for (int c = 0; c < wordClass.wordCount(class_index); c++) {
+			int a = wordClass.getWord(class_index, c);
+    
+			for (int b=0; b<_order; b++) if (hash[b]) {
+				_synapses[hash[b]] += alpha * layer2.getError(a) - _synapses[hash[b]] * beta3;
+				hash[b]++;
+				hash[b]=hash[b]%_size;
+			} else break;
 		}
 	}
 }

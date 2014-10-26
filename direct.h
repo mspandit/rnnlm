@@ -35,7 +35,7 @@ public:
 	void applyToClasses(Layer &, const Vocabulary &, int);
 	void applyToWords(Layer &, int, const WordClass &);
 	void learnForClasses(int, real, real, const Vocabulary &, const Layer &);
-	void learnForWords(int, real, real, const Vocabulary &, const WordClass &, const Layer &);
+	void learnForWords(real, real, int, const WordClass &, const Layer &);
 	void clearHistory();
 	void push(int);
 	void print(FILE *);
